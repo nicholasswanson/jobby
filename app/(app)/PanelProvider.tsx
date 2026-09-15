@@ -21,12 +21,10 @@ export default function PanelProvider({ children }: { children: React.ReactNode 
 
   return (
     <Ctx.Provider value={{ jobId, openJob: setJobId, close: () => setJobId(null) }}>
-      <div
-        className={`mx-auto w-full max-w-2xl flex-1 px-6 py-4 transition-[padding] duration-200 ${
-          open ? 'lg:pr-[50vw]' : ''
-        }`}
-      >
-        {children}
+      {/* Outer wrapper reserves the panel's half when open; the inner column keeps
+          its fixed max-w-2xl width and just re-centers into the remaining space. */}
+      <div className={`flex-1 transition-[padding] duration-200 ${open ? 'lg:pr-[50vw]' : ''}`}>
+        <div className="mx-auto w-full max-w-2xl px-6 py-4">{children}</div>
       </div>
       <JobDetailPanel jobId={jobId} onClose={() => setJobId(null)} />
     </Ctx.Provider>
