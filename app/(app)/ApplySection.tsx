@@ -97,21 +97,52 @@ export default function ApplySection({ jobId, applyUrl }: { jobId: number; apply
         </p>
       ) : null}
 
-      {/* Apply control */}
+      {/* Apply control — primary action + View, side by side */}
       <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+        <div className="flex flex-wrap gap-2">
+          {ats && status === 'needs_review' ? (
+            <button
+              disabled={pending}
+              onClick={() => start(() => submitApplication(jobId).then(refresh))}
+              className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Submit
+            </button>
+          ) : ats && status === 'submitted' ? (
+            <span className="flex-1 rounded-lg bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+              Applied ✓
+            </span>
+          ) : ats && status != null && RUNNING.has(status) ? (
+            <span className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-center text-sm text-zinc-500 dark:border-zinc-700">
+              Applying… ({status})
+            </span>
+          ) : ats ? (
+            <button
+              disabled={pending || !readiness?.hasResume || !readiness?.hasProfile}
+              onClick={() => start(() => startApplication(jobId, 'fill').then(refresh))}
+              className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Open and pre-fill
+            </button>
+          ) : null}
+
+          <a
+            href={applyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-center text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+          >
+            View
+          </a>
+        </div>
+
+        {/* Status detail below the buttons */}
         {!ats ? (
-          <p className="text-xs text-zinc-500">
-            Not on a supported ATS (Greenhouse/Lever/Ashby).{' '}
-            <a href={applyUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              Apply manually ↗
-            </a>
-          </p>
-        ) : status === 'submitted' ? (
-          <p className="text-sm font-medium text-emerald-600">Applied ✓</p>
+          <p className="mt-2 text-xs text-zinc-500">Not on a supported ATS — open the posting to apply.</p>
         ) : status === 'needs_review' ? (
-          <div className="space-y-2">
+          <div className="mt-2 space-y-2">
             <p className="text-xs text-zinc-500">
-              The agent filled the {atsLabel(ats)} form. Review, then submit.
+              The agent filled the {atsLabel(ats)} form. Review, then Submit.
             </p>
             {application?.screenshotBase64 ? (
               <img
@@ -120,49 +151,19 @@ export default function ApplySection({ jobId, applyUrl }: { jobId: number; apply
                 className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800"
               />
             ) : null}
-            <div className="flex gap-2">
-              <button
-                disabled={pending}
-                onClick={() => start(() => submitApplication(jobId).then(refresh))}
-                className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
-              >
-                Submit application
-              </button>
-              {application?.sessionUrl ? (
-                <a href={application.sessionUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-500 hover:underline self-center">
-                  Watch session ↗
-                </a>
-              ) : null}
-            </div>
-          </div>
-        ) : status != null && RUNNING.has(status) ? (
-          <p className="text-sm text-zinc-500">
-            Applying… <span className="text-xs">({status})</span>
-          </p>
-        ) : (
-          <div className="space-y-2">
-            <button
-              disabled={pending || !readiness?.hasResume || !readiness?.hasProfile}
-              onClick={() => start(() => startApplication(jobId, 'fill').then(refresh))}
-              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              Apply with Jobby
-            </button>
-            {status === 'failed' && application?.error ? (
-              <p className="text-xs text-red-600">{application.error}</p>
+            {application?.sessionUrl ? (
+              <a href={application.sessionUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-500 hover:underline">
+                Watch session ↗
+              </a>
             ) : null}
-            {readiness && !readiness.agentConfigured ? (
-              <p className="text-xs text-zinc-400">
-                Fills the {atsLabel(ats)} form and pauses for your review before submitting.
-                (Agent keys not yet configured.)
-              </p>
-            ) : (
-              <p className="text-xs text-zinc-400">
-                Fills the {atsLabel(ats)} form and pauses for your review before submitting.
-              </p>
-            )}
           </div>
-        )}
+        ) : status === 'failed' && application?.error ? (
+          <p className="mt-2 text-xs text-red-600">{application.error}</p>
+        ) : status == null || status === 'unsupported' ? (
+          <p className="mt-2 text-xs text-zinc-400">
+            “Open and pre-fill” fills the {atsLabel(ats)} form and pauses for your review before submitting.
+          </p>
+        ) : null}
       </div>
     </section>
   )

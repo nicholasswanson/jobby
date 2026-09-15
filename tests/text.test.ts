@@ -8,8 +8,11 @@ describe('htmlToText', () => {
   it('handles HTML-escaped payloads (Greenhouse content)', () => {
     expect(htmlToText('&lt;p&gt;Join &lt;strong&gt;us&lt;/strong&gt;&lt;/p&gt;')).toBe('Join us')
   })
-  it('collapses whitespace and inserts spaces at block boundaries', () => {
-    expect(htmlToText('<li>One</li><li>Two</li>')).toBe('One Two')
+  it('renders list items as bullets on their own lines', () => {
+    expect(htmlToText('<li>One</li><li>Two</li>')).toBe('• One\n• Two')
+  })
+  it('preserves paragraph breaks', () => {
+    expect(htmlToText('<p>First para.</p><p>Second para.</p>')).toBe('First para.\nSecond para.')
   })
   it('returns empty string for null/undefined/empty', () => {
     expect(htmlToText(null)).toBe('')

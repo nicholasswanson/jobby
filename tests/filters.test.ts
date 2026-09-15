@@ -124,6 +124,15 @@ describe('filterJob (title + location combined)', () => {
       relevant: false,
     })
   })
+
+  it.each([
+    'Customer Success Engineer',
+    'Customer Success Engineer (Contract)',
+    'Sales Engineer',
+    'Solutions Engineer',
+  ])('drops engineering role %s as irrelevant', (title) => {
+    expect(filterJob({ title, location: 'Remote' })).toEqual({ included: false, relevant: false })
+  })
 })
 
 describe('non-North-America geo exclusion', () => {

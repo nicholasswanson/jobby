@@ -158,7 +158,9 @@ export async function upsertSeedCompany(input: SeedCompanyInput): Promise<{ isNe
 
 // Cards show a short snippet (clamped to 4 lines); the detail panel loads the
 // full text via getJobDetail. Keeps the inbox payload small.
-const CARD_SNIPPET = sql<string | null>`left(${jobs.description}, 320)`
+// Send enough text that the card's CSS line-clamp does the truncation (ellipsis
+// at the right edge) instead of a hard mid-word SQL cut.
+const CARD_SNIPPET = sql<string | null>`left(${jobs.description}, 800)`
 // Hard cutoff: never show jobs whose effective posted date is >90 days old.
 const WITHIN_90_DAYS = sql`coalesce(${jobs.postedAt}, ${jobs.firstSeen}) >= now() - interval '90 days'`
 
@@ -175,12 +177,22 @@ export function getInbox() {
       postedAt: jobs.postedAt,
       firstSeen: jobs.firstSeen,
       status: jobs.status,
+      companyId: jobs.companyId,
       companyName: companies.name,
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
     .where(and(eq(jobs.status, 'inbox'), WITHIN_90_DAYS))
     .orderBy(desc(jobs.firstSeen))
+}
+
+/** Mute a company and drop its currently-open inbox jobs. */
+export async function hideCompany(companyId: number) {
+  await db.update(companies).set({ active: false }).where(eq(companies.id, companyId))
+  await db
+    .update(jobs)
+    .set({ status: 'closed' })
+    .where(and(eq(jobs.companyId, companyId), eq(jobs.status, 'inbox')))
 }
 
 /** Full job + company enrichment for the detail side panel. */

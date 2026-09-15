@@ -31,9 +31,20 @@ export function htmlToText(input: string | null | undefined): string {
   const decoded = decodeEntities(input)
   const stripped = decoded
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<\/(p|div|li|br|h[1-6]|tr)>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-  return decodeEntities(stripped).replace(/\s+/g, ' ').trim()
+    // Bullets get a marker; block boundaries become newlines so structure survives.
+    .replace(/<li\b[^>]*>/gi, '\n• ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|tr|ul|ol|section|header|footer)>/gi, '\n')
+    .replace(/<h[1-6]\b[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+  return (
+    decodeEntities(stripped)
+      // Collapse runs of spaces/tabs but keep newlines; cap blank lines at one.
+      .replace(/[ \t\f\v]+/g, ' ')
+      .replace(/ *\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  )
 }
 
 /** Truncate on a word boundary, appending an ellipsis when cut. */

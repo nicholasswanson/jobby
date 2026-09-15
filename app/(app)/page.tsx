@@ -13,6 +13,7 @@ export default async function InboxPage() {
     const effective = r.postedAt ?? r.firstSeen
     return {
       id: r.id,
+      companyId: r.companyId,
       companyName: r.companyName,
       title: r.title,
       snippet: r.snippet,

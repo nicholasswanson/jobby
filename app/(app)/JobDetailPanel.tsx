@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { REMOTE_BADGES, relativeDate } from '@/lib/format'
 import type { RemoteType } from '@/lib/filters'
-import { loadJobDetail } from './actions'
+import { enrichCompanyDetail, loadJobDetail } from './actions'
 import ApplySection from './ApplySection'
 
 type Detail = Awaited<ReturnType<typeof loadJobDetail>>
@@ -43,6 +43,27 @@ export default function JobDetailPanel({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [jobId, onClose])
+
+  // Enrich the company on open if it has no blurb yet (aggregator employers etc.).
+  const [enriching, setEnriching] = useState(false)
+  const companyId = detail?.company?.id
+  const companySparse = detail?.company && !detail.company.oneLiner && !detail.company.description
+  useEffect(() => {
+    if (!companyId || !companySparse) return
+    let active = true
+    setEnriching(true)
+    enrichCompanyDetail(companyId)
+      .then((res) => {
+        if (active && res) {
+          setDetail((d) => (d && d.company ? { ...d, company: { ...d.company, ...res } } : d))
+        }
+      })
+      .finally(() => active && setEnriching(false))
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, companySparse])
 
   const open = jobId != null
   const badge = detail?.remoteType ? REMOTE_BADGES[detail.remoteType as RemoteType] : null
@@ -98,23 +119,18 @@ export default function JobDetailPanel({
                 {detail.postedAt ? <span>· posted {relativeDate(detail.postedAt)} ago</span> : null}
               </div>
 
-              <a
-                href={detail.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-flex rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-              >
-                View & apply ↗
-              </a>
-
-              {/* Résumé tailoring + one-click apply */}
+              {/* Résumé tailoring + one-click apply (View + Open-and-pre-fill live here) */}
               <ApplySection jobId={detail.id} applyUrl={detail.url} />
 
               {/* Company breakdown */}
               {c ? (
                 <section className="mt-5 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
                   <h3 className="text-sm font-semibold">About {c.name}</h3>
-                  {c.oneLiner ? <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{c.oneLiner}</p> : null}
+                  {c.oneLiner ? (
+                    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{c.oneLiner}</p>
+                  ) : enriching ? (
+                    <p className="mt-1 text-sm text-zinc-400">Researching company…</p>
+                  ) : null}
                   <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                     {c.teamSize ? <Row k="Team size" v={`${c.teamSize}`} /> : null}
                     {c.industry ? <Row k="Industry" v={c.industry} /> : null}

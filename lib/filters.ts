@@ -105,8 +105,15 @@ export type FilterResult =
  * role, then apply seniority, geo, and location gates. Relevant-but-excluded
  * jobs carry a reason so they can be reviewed later.
  */
+// Engineering / technical roles that can slip through INCLUDE (e.g. "Customer
+// Success Engineer", "Sales Engineer") — not target AM/sales roles, so drop them
+// entirely (not even worth surfacing in the filtered-review list).
+export const ENGINEERING =
+  /\bengineer|\bengineering\b|\bdeveloper\b|\bsoftware\b|\bprogrammer\b|\bswe\b|data scientist|machine learning engineer/i
+
 export function filterJob({ title, location }: FilterInput): FilterResult {
   if (!INCLUDE.test(title)) return { included: false, relevant: false }
+  if (ENGINEERING.test(title)) return { included: false, relevant: false }
   if (EXCLUDE.test(title)) return { included: false, relevant: true, reason: 'seniority' }
   if (isNonNorthAmerica(title, location))
     return { included: false, relevant: true, reason: 'geo' }

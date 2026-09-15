@@ -14,12 +14,14 @@ import {
   getProfile,
   getResume,
   getTailoring,
+  hideCompany,
   restoreToInbox,
   setJobStatus,
   upsertApplication,
   upsertTailoring,
 } from '@/lib/db/queries'
 import { generateTailoredResume } from '@/lib/ai/tailor'
+import { enrichCompany } from '@/lib/ai/enrichCompany'
 import { detectAts } from '@/lib/apply/ats'
 import { applyAgentConfigured, dispatchApplyWorker } from '@/lib/apply/dispatch'
 
@@ -147,6 +149,21 @@ export async function setCompanyActive(companyId: number, active: boolean) {
   await assertSession()
   await db.update(companies).set({ active }).where(eq(companies.id, companyId))
   revalidatePath('/companies')
+}
+
+/** "Don't show this company" from a job card: mute it + drop its open inbox jobs. */
+export async function hideCompanyFromInbox(companyId: number) {
+  await assertSession()
+  await hideCompany(companyId)
+  revalidatePath('/')
+  revalidatePath('/companies')
+  revalidatePath('/settings')
+}
+
+/** Enrich a company's profile on demand (used when the detail panel has sparse info). */
+export async function enrichCompanyDetail(companyId: number) {
+  await assertSession()
+  return enrichCompany(companyId)
 }
 
 export async function logout() {

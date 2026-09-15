@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react'
 import { REMOTE_BADGES } from '@/lib/format'
 import type { RemoteType } from '@/lib/filters'
-import { triageJob } from './actions'
+import { hideCompanyFromInbox, triageJob } from './actions'
 import JobDetailPanel from './JobDetailPanel'
 
 export type InboxItem = {
   id: number
+  companyId: number
   companyName: string
   title: string
   snippet: string | null
@@ -19,6 +20,8 @@ export type InboxItem = {
   postedAtMs: number | null
 }
 
+type RemoveAction = { kind: 'job'; id: number } | { kind: 'company'; companyId: number }
+
 const DAY = 86_400_000
 const DATE_FILTERS = [
   { key: 'any', label: 'Any time', days: null },
@@ -28,15 +31,18 @@ const DATE_FILTERS = [
 ] as const
 
 export default function InboxList({ items }: { items: InboxItem[] }) {
-  const [optimisticItems, removeItem] = useOptimistic(items, (state, id: number) =>
-    state.filter((i) => i.id !== id),
+  const [optimisticItems, removeOptimistic] = useOptimistic(
+    items,
+    (state, action: RemoveAction) =>
+      action.kind === 'job'
+        ? state.filter((i) => i.id !== action.id)
+        : state.filter((i) => i.companyId !== action.companyId),
   )
   const [, startTransition] = useTransition()
   const [selected, setSelected] = useState(0)
   const [dateFilter, setDateFilter] = useState<(typeof DATE_FILTERS)[number]['key']>('any')
   const [detailId, setDetailId] = useState<number | null>(null)
 
-  // Apply the posted-date filter (client-side; the 90-day hard cap is server-side).
   const visible = useMemo(() => {
     const conf = DATE_FILTERS.find((f) => f.key === dateFilter)
     if (!conf?.days) return optimisticItems
@@ -46,8 +52,16 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
 
   const triage = (id: number, status: 'interested' | 'not_a_fit') => {
     startTransition(async () => {
-      removeItem(id)
+      removeOptimistic({ kind: 'job', id })
+      if (detailId === id && status === 'not_a_fit') setDetailId(null)
       await triageJob(id, status)
+    })
+  }
+
+  const hideCompany = (companyId: number) => {
+    startTransition(async () => {
+      removeOptimistic({ kind: 'company', companyId })
+      await hideCompanyFromInbox(companyId)
     })
   }
 
@@ -55,7 +69,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return
-      if (detailId != null) return // panel handles its own keys
+      if (detailId != null) return
       if (visible.length === 0) return
       const cur = Math.min(selected, visible.length - 1)
       switch (e.key.toLowerCase()) {
@@ -81,9 +95,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
   return (
     <>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-zinc-400">
-          {visible.length} to review · <kbd>I</kbd>/<kbd>X</kbd> · <kbd>J</kbd>/<kbd>K</kbd>
-        </p>
+        <p className="text-xs text-zinc-400">{visible.length} to review</p>
         <label className="flex items-center gap-1.5 text-xs text-zinc-500">
           Posted
           <select
@@ -120,6 +132,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
               selected={idx === Math.min(selected, visible.length - 1)}
               onOpen={() => setDetailId(item.id)}
               onTriage={triage}
+              onHideCompany={hideCompany}
             />
           ))}
         </div>
@@ -135,11 +148,13 @@ function JobCard({
   selected,
   onOpen,
   onTriage,
+  onHideCompany,
 }: {
   item: InboxItem
   selected: boolean
   onOpen: () => void
   onTriage: (id: number, status: 'interested' | 'not_a_fit') => void
+  onHideCompany: (companyId: number) => void
 }) {
   const [dragX, setDragX] = useState(0)
   const startX = useRef<number | null>(null)
@@ -224,6 +239,16 @@ function JobCard({
           Not a fit
         </button>
       </div>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onHideCompany(item.companyId)
+        }}
+        className="mt-2 w-full rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-900 dark:hover:text-zinc-300"
+      >
+        Don’t show {item.companyName}
+      </button>
     </div>
   )
 }
