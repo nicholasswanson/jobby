@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
+import { AUTH_ENABLED } from '@/lib/auth'
 import HealthChip from './HealthChip'
 import { logout } from './actions'
 import NavLinks from './NavLinks'
@@ -15,11 +16,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Suspense fallback={null}>
             <HealthChip />
           </Suspense>
-          <form action={logout}>
-            <button className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
-              Sign out
-            </button>
-          </form>
+          <div className="flex items-center gap-3 text-xs text-zinc-500">
+            <Link href="/settings" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+              Settings
+            </Link>
+            {AUTH_ENABLED ? (
+              <form action={logout}>
+                <button className="hover:text-zinc-900 dark:hover:text-zinc-100">Sign out</button>
+              </form>
+            ) : null}
+          </div>
         </div>
         <NavLinks />
       </header>

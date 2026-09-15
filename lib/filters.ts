@@ -24,6 +24,19 @@ export function matchesTitle(title: string): boolean {
   return INCLUDE.test(title) && !EXCLUDE.test(title)
 }
 
+// Clear non-North-America geo indicators. When one of these appears in a title
+// or location, the role is region-locked outside NA (US/Canada) and is excluded
+// — e.g. "Account Executive, LATAM", "Account Executive, Named - Germany",
+// "Remote (EU)". NA terms (US, USA, Canada, North America, Americas, AMER) are
+// deliberately absent so they stay included.
+export const NON_NA_GEO =
+  /\b(latam|latin america|emea|apac|\bapj\b|anz|dach|mena|benelux|nordics?|iberia|europe|european|\beu\b|\buk\b|united kingdom|great britain|britain|ireland|germany|france|spain|italy|portugal|netherlands|belgium|luxembourg|switzerland|austria|poland|czech|romania|hungary|greece|sweden|denmark|norway|finland|iceland|turkey|ukraine|russia|middle east|israel|\buae\b|dubai|saudi|qatar|africa|nigeria|kenya|egypt|morocco|asia|\bapac\b|india|china|hong kong|taiwan|japan|korea|singapore|malaysia|indonesia|thailand|vietnam|philippines|pakistan|bangladesh|australia|new zealand|oceania|brazil|argentina|colombia|chile|peru|london|berlin|munich|paris|amsterdam|dublin|madrid|barcelona|lisbon|milan|zurich|stockholm|warsaw|bangalore|bengaluru|mumbai|delhi|hyderabad|sydney|melbourne|tokyo|seoul|s[aã]o paulo)\b/i
+
+/** True when a title or location clearly restricts the role outside North America. */
+export function isNonNorthAmerica(...texts: (string | null | undefined)[]): boolean {
+  return texts.some((t) => !!t && NON_NA_GEO.test(t))
+}
+
 // --- Location classification -------------------------------------------------
 
 export type RemoteType = 'remote' | 'remote_us' | 'remote_restricted'
@@ -75,14 +88,29 @@ export function classifyLocation(raw: string | null | undefined): LocationResult
 // --- Combined ----------------------------------------------------------------
 
 export type FilterInput = { title: string; location?: string | null }
+
+// Why a matching-role job was excluded — surfaced in Settings › Filtered so the
+// user can review and override false negatives.
+export type FilterReason = 'seniority' | 'geo' | 'onsite'
+
 export type FilterResult =
-  | { included: false }
+  // Not a target role at all — not worth storing.
+  | { included: false; relevant: false }
+  // A target role (title matched INCLUDE) but excluded by a later gate.
+  | { included: false; relevant: true; reason: FilterReason }
   | { included: true; remoteType: RemoteType; verify: boolean }
 
-/** Apply the title filter, then classify location. */
+/**
+ * Staged filter. Order matters: first decide whether the title is even a target
+ * role, then apply seniority, geo, and location gates. Relevant-but-excluded
+ * jobs carry a reason so they can be reviewed later.
+ */
 export function filterJob({ title, location }: FilterInput): FilterResult {
-  if (!matchesTitle(title)) return { included: false }
+  if (!INCLUDE.test(title)) return { included: false, relevant: false }
+  if (EXCLUDE.test(title)) return { included: false, relevant: true, reason: 'seniority' }
+  if (isNonNorthAmerica(title, location))
+    return { included: false, relevant: true, reason: 'geo' }
   const loc = classifyLocation(location)
-  if (!loc.keep) return { included: false }
+  if (!loc.keep) return { included: false, relevant: true, reason: 'onsite' }
   return { included: true, remoteType: loc.remoteType, verify: loc.verify }
 }

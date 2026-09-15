@@ -1,5 +1,10 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
+// Site login is temporarily disabled (per user request). Flip to `true` to
+// re-enable the shared-password gate — no other changes needed. The /api/cron
+// bearer secret is independent and stays enforced regardless.
+export const AUTH_ENABLED = false
+
 export const SESSION_COOKIE = 'jobby_session'
 
 /** Constant-time string comparison that never short-circuits on length. */

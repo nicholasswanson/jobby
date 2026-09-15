@@ -52,7 +52,8 @@ export const jobs = pgTable('jobs', {
   postedAt: timestamp('posted_at', { withTimezone: true }),
   firstSeen: timestamp('first_seen', { withTimezone: true }).notNull().defaultNow(),
   lastSeen: timestamp('last_seen', { withTimezone: true }).notNull().defaultNow(),
-  status: text('status').notNull().default('inbox'), // 'inbox' | 'interested' | 'not_a_fit' | 'closed'
+  status: text('status').notNull().default('inbox'), // 'inbox' | 'interested' | 'not_a_fit' | 'closed' | 'filtered'
+  filterReason: text('filter_reason'), // set when status='filtered': 'seniority' | 'geo' | 'onsite'
   closedWhileInterested: boolean('closed_while_interested').notNull().default(false),
   triagedAt: timestamp('triaged_at', { withTimezone: true }),
 })

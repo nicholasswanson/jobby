@@ -102,15 +102,54 @@ describe('filterJob (title + location combined)', () => {
     })
   })
 
-  it('drops a matching title at an on-site location', () => {
+  it('drops a matching title at an on-site location, tagged onsite', () => {
     expect(filterJob({ title: 'Sales Associate', location: 'Hybrid, NYC' })).toEqual({
       included: false,
+      relevant: true,
+      reason: 'onsite',
     })
   })
 
-  it('drops a senior title even when remote', () => {
+  it('drops a senior title even when remote, tagged seniority', () => {
     expect(filterJob({ title: 'Senior Account Executive', location: 'Remote' })).toEqual({
       included: false,
+      relevant: true,
+      reason: 'seniority',
     })
+  })
+
+  it('marks a non-target title irrelevant (not stored)', () => {
+    expect(filterJob({ title: 'Software Engineer', location: 'Remote' })).toEqual({
+      included: false,
+      relevant: false,
+    })
+  })
+})
+
+describe('non-North-America geo exclusion', () => {
+  it.each([
+    ['Account Executive, LATAM', 'Anywhere in the World'],
+    ['Account Executive, Named - Germany', 'Anywhere in the World'],
+    ['Account Executive, EMEA', 'Remote'],
+    ['Account Manager, DACH', 'Remote'],
+    ['Sales Development Representative, APAC', 'Remote'],
+    ['Account Executive', 'Remote (EU)'],
+    ['Account Executive', 'Remote - London'],
+  ])('excludes %s / %s with reason geo', (title, location) => {
+    expect(filterJob({ title, location })).toEqual({
+      included: false,
+      relevant: true,
+      reason: 'geo',
+    })
+  })
+
+  it.each([
+    ['Account Executive, US', 'Remote'],
+    ['Account Executive, North America', 'Remote'],
+    ['Account Executive, Americas', 'Remote'],
+    ['Account Manager, Canada', 'Remote'],
+    ['Account Executive, AMER', 'Remote'],
+  ])('keeps North-America role %s', (title, location) => {
+    expect(filterJob({ title, location })).toMatchObject({ included: true })
   })
 })

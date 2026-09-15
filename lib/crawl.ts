@@ -35,37 +35,45 @@ export type CrawlResult = {
   newJobs: number
 }
 
-type Counters = { jobsSeen: number; newJobs: number; seenJobIds: number[] }
+type Counters = { jobsSeen: number; newJobs: number; filtered: number; seenJobIds: number[] }
 
 /**
- * Turn a batch of normalized postings for a known company into upserts.
- * Filtered-out postings are ignored. Returns per-batch counters.
+ * Ingest one normalized posting for a known company.
+ *  - target role, passes all gates  → stored as `inbox`
+ *  - target role, excluded by a gate → stored as `filtered` (+ reason) for review
+ *  - not a target role               → skipped entirely (not stored)
  */
-async function ingestPostings(
-  companyId: number,
-  postings: NormalizedPosting[],
-  counters: Counters,
-) {
-  for (const p of postings) {
-    const verdict = filterJob({ title: p.title, location: p.location })
-    if (!verdict.included) continue
+async function ingestOne(companyId: number, p: NormalizedPosting, counters: Counters) {
+  const verdict = filterJob({ title: p.title, location: p.location })
+  if (!verdict.included && !verdict.relevant) return // irrelevant role, don't store
 
+  const included = verdict.included
+  const { job, isNew } = await upsertJob({
+    companyId,
+    externalId: p.externalId,
+    dedupeHash: dedupeHash(companyId, p.title, p.location),
+    title: p.title,
+    description: p.description,
+    location: p.location,
+    remoteType: included ? verdict.remoteType : null,
+    salaryText: p.salaryText,
+    url: p.url,
+    postedAt: p.postedAt,
+    status: included ? 'inbox' : 'filtered',
+    filterReason: included ? null : verdict.reason,
+  })
+
+  counters.seenJobIds.push(job.id) // seen this run (inbox or filtered) → not closed
+  if (included) {
     counters.jobsSeen += 1
-    const { job, isNew } = await upsertJob({
-      companyId,
-      externalId: p.externalId,
-      dedupeHash: dedupeHash(companyId, p.title, p.location),
-      title: p.title,
-      description: p.description,
-      location: p.location,
-      remoteType: verdict.remoteType,
-      salaryText: p.salaryText,
-      url: p.url,
-      postedAt: p.postedAt,
-    })
-    counters.seenJobIds.push(job.id)
     if (isNew) counters.newJobs += 1
+  } else if (isNew) {
+    counters.filtered += 1
   }
+}
+
+async function ingestPostings(companyId: number, postings: NormalizedPosting[], counters: Counters) {
+  for (const p of postings) await ingestOne(companyId, p, counters)
 }
 
 async function crawlBoardCompany(company: Company, counters: Counters): Promise<boolean> {
@@ -83,28 +91,16 @@ async function crawlAggregators(counters: Counters) {
       const raw = agg.kind === 'json' ? await fetchJson(agg.url) : await fetchText(agg.url)
       const postings = agg.normalize(raw)
       for (const p of postings) {
+        // Skip irrelevant roles before creating a company row for them.
         const verdict = filterJob({ title: p.title, location: p.location })
-        if (!verdict.included) continue
+        if (!verdict.included && !verdict.relevant) continue
         const name = p.companyName?.trim()
         if (!name) continue
 
         const company = await getOrCreateAggregatorCompany(name, agg.key)
         if (!company || !company.active) continue
 
-        counters.jobsSeen += 1
-        const { isNew } = await upsertJob({
-          companyId: company.id,
-          externalId: p.externalId,
-          dedupeHash: dedupeHash(company.id, p.title, p.location),
-          title: p.title,
-          description: p.description,
-          location: p.location,
-          remoteType: verdict.remoteType,
-          salaryText: p.salaryText,
-          url: p.url,
-          postedAt: p.postedAt,
-        })
-        if (isNew) counters.newJobs += 1
+        await ingestOne(company.id, p, counters)
       }
     } catch (err) {
       // Aggregator feed failure is isolated — it never fails the run.
@@ -138,7 +134,7 @@ export async function runCrawl(opts: { now?: Date; force?: boolean } = {}): Prom
   }
 
   const startedAt = now
-  const counters: Counters = { jobsSeen: 0, newJobs: 0, seenJobIds: [] }
+  const counters: Counters = { jobsSeen: 0, newJobs: 0, filtered: 0, seenJobIds: [] }
   const companies = await getActiveBoardCompanies()
 
   let companiesOk = 0

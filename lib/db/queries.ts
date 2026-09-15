@@ -230,6 +230,69 @@ export function getInterested() {
     .orderBy(desc(jobs.triagedAt))
 }
 
+// ---- Settings reads ---------------------------------------------------------
+
+/** Muted companies (active=false) — the "block list". */
+export function getBlockedCompanies() {
+  return db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      atsType: companies.atsType,
+      slug: companies.slug,
+    })
+    .from(companies)
+    .where(eq(companies.active, false))
+    .orderBy(companies.name)
+}
+
+/** History of triage decisions (interested / not a fit), newest first. */
+export function getActivityHistory() {
+  return db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      url: jobs.url,
+      status: jobs.status,
+      triagedAt: jobs.triagedAt,
+      companyName: companies.name,
+    })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(inArray(jobs.status, ['interested', 'not_a_fit']))
+    .orderBy(desc(jobs.triagedAt))
+    .limit(200)
+}
+
+/** Relevant roles excluded by the filter (open only), for review + override. */
+export function getFilteredJobs() {
+  return db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      snippet: CARD_SNIPPET,
+      location: jobs.location,
+      url: jobs.url,
+      filterReason: jobs.filterReason,
+      postedAt: jobs.postedAt,
+      firstSeen: jobs.firstSeen,
+      companyName: companies.name,
+    })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(and(eq(jobs.status, 'filtered'), WITHIN_90_DAYS))
+    .orderBy(desc(jobs.firstSeen))
+    .limit(300)
+}
+
+/** Override a filter/triage decision: move a job (back) into the inbox. */
+export async function restoreToInbox(jobId: number) {
+  await db
+    .update(jobs)
+    .set({ status: 'inbox', filterReason: null, triagedAt: null })
+    .where(eq(jobs.id, jobId))
+}
+
 // ---- Triage write -----------------------------------------------------------
 
 export type TriageStatus = 'inbox' | 'interested' | 'not_a_fit' | 'closed'
@@ -292,14 +355,14 @@ export async function closeMissingJobs(companyIds: number[], seenJobIds: number[
       ),
     )
 
-  // Close inbox / not_a_fit jobs that vanished.
+  // Close inbox / not_a_fit / filtered jobs that vanished from the board.
   await db
     .update(jobs)
     .set({ status: 'closed' })
     .where(
       and(
         inArray(jobs.companyId, companyIds),
-        inArray(jobs.status, ['inbox', 'not_a_fit']),
+        inArray(jobs.status, ['inbox', 'not_a_fit', 'filtered']),
         seenJobIds.length > 0 ? notInArray(jobs.id, seenJobIds) : undefined,
       ),
     )
