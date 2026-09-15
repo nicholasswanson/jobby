@@ -1,6 +1,111 @@
 import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import { db } from './client'
-import { companies, jobs, runs, type NewJob, type NewRun, type Job } from './schema'
+import {
+  companies,
+  jobs,
+  runs,
+  type Company,
+  type NewJob,
+  type NewRun,
+  type Job,
+} from './schema'
+
+// ATS types that correspond to a per-company board we fetch directly.
+export const BOARD_ATS_TYPES = ['greenhouse', 'lever', 'ashby'] as const
+
+// ---- Company reads / crawl bookkeeping -------------------------------------
+
+/** Active companies that have a fetchable ATS board (excludes aggregators). */
+export function getActiveBoardCompanies(): Promise<Company[]> {
+  return db
+    .select()
+    .from(companies)
+    .where(
+      and(
+        eq(companies.active, true),
+        inArray(companies.atsType, [...BOARD_ATS_TYPES]),
+      ),
+    )
+}
+
+/** All companies for the /companies management page, jobs-count included. */
+export function getCompaniesWithJobCounts() {
+  return db
+    .select({
+      id: companies.id,
+      name: companies.name,
+      atsType: companies.atsType,
+      slug: companies.slug,
+      website: companies.website,
+      active: companies.active,
+      consecutiveFailures: companies.consecutiveFailures,
+      jobCount: sql<number>`count(${jobs.id})::int`,
+    })
+    .from(companies)
+    .leftJoin(jobs, eq(jobs.companyId, companies.id))
+    .groupBy(companies.id)
+    .orderBy(desc(sql`count(${jobs.id})`), companies.name)
+}
+
+const FAILURE_DEACTIVATE_THRESHOLD = 5
+
+export async function resetCompanyFailures(companyId: number) {
+  await db
+    .update(companies)
+    .set({ consecutiveFailures: 0 })
+    .where(eq(companies.id, companyId))
+}
+
+/** Increment a company's failure counter; auto-mute at the threshold. */
+export async function recordCompanyFailure(companyId: number) {
+  await db
+    .update(companies)
+    .set({
+      consecutiveFailures: sql`${companies.consecutiveFailures} + 1`,
+      active: sql`case when ${companies.consecutiveFailures} + 1 >= ${FAILURE_DEACTIVATE_THRESHOLD} then false else ${companies.active} end`,
+    })
+    .where(eq(companies.id, companyId))
+}
+
+/**
+ * Resolve (or create) the company row for an aggregator posting, keyed by the
+ * employer name. Aggregators (Remotive, WWR) surface many employers through one
+ * feed, so their company rows are created on the fly.
+ */
+export async function getOrCreateAggregatorCompany(
+  name: string,
+  source: string,
+): Promise<Company> {
+  const slug = name.trim().toLowerCase()
+  const inserted = await db
+    .insert(companies)
+    .values({ name: name.trim(), atsType: 'aggregator', slug, source })
+    .onConflictDoNothing({ target: [companies.atsType, companies.slug] })
+    .returning()
+  if (inserted.length > 0) return inserted[0]
+
+  const [existing] = await db
+    .select()
+    .from(companies)
+    .where(and(eq(companies.atsType, 'aggregator'), eq(companies.slug, slug)))
+    .limit(1)
+  return existing
+}
+
+export async function upsertSeedCompany(input: {
+  name: string
+  atsType: string
+  slug: string
+  website?: string | null
+  source?: string | null
+}): Promise<{ isNew: boolean }> {
+  const inserted = await db
+    .insert(companies)
+    .values(input)
+    .onConflictDoNothing({ target: [companies.atsType, companies.slug] })
+    .returning()
+  return { isNew: inserted.length > 0 }
+}
 
 // ---- Inbox / pipeline reads -------------------------------------------------
 
