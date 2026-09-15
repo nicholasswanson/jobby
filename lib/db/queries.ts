@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, notInArray, sql } from 'drizzle-orm'
 import { db } from './client'
 import {
   applicationProfile,
@@ -444,6 +444,23 @@ export async function recordRun(input: NewRun) {
 
 export function getLatestRun() {
   return db.select().from(runs).orderBy(desc(runs.id)).limit(1)
+}
+
+/** Lowercased set of every company name we already track (for incremental seeding). */
+export async function getKnownCompanyNames(): Promise<Set<string>> {
+  const rows = await db.select({ name: companies.name }).from(companies)
+  return new Set(rows.map((r) => r.name.trim().toLowerCase()))
+}
+
+/** When the seed list was last refreshed (most recent run that seeded), or null. */
+export async function getLastSeedAt(): Promise<Date | null> {
+  const [row] = await db
+    .select({ seededAt: runs.seededAt })
+    .from(runs)
+    .where(isNotNull(runs.seededAt))
+    .orderBy(desc(runs.seededAt))
+    .limit(1)
+  return row?.seededAt ?? null
 }
 
 // ---- Résumé + apply subsystem ----------------------------------------------

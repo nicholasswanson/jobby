@@ -38,8 +38,8 @@ export default function CompaniesList({ companies }: { companies: CompanyRow[] }
 
       <p className="text-xs text-zinc-400">
         {query ? `${filtered.length} match · ` : ''}
-        {activeCount} active of {companies.length} · re-run the seed via{' '}
-        <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">npm run seed</code>
+        {activeCount} active of {companies.length} · new companies are discovered
+        automatically with the daily crawl
       </p>
 
       {filtered.length === 0 ? (

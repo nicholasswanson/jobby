@@ -70,6 +70,9 @@ export const runs = pgTable('runs', {
   newJobs: integer('new_jobs'),
   skipped: boolean('skipped').notNull().default(false),
   errorSummary: text('error_summary'),
+  // Set when this run also refreshed the company seed list (discovers new YC
+  // companies). Gated to ~once/day so most crawl runs leave it null.
+  seededAt: timestamp('seeded_at', { withTimezone: true }),
 })
 
 export type Company = typeof companies.$inferSelect

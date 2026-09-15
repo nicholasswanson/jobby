@@ -13,6 +13,8 @@ import {
 import {
   closeMissingJobs,
   getActiveBoardCompanies,
+  getKnownCompanyNames,
+  getLastSeedAt,
   getOrCreateAggregatorCompany,
   markCompanyEnriched,
   recordCompanyFailure,
@@ -23,10 +25,30 @@ import {
 } from './db/queries'
 import type { NewJob } from './db/schema'
 import { fetchSiteDescription } from './enrich'
+import { discoverNewCompanies } from './seed'
 import type { NormalizedPosting } from './sources/types'
 import type { Company } from './db/schema'
 
 const CONCURRENCY = 8
+
+// Occasional auto-seed: refresh the company list at most once per this window,
+// probing a bounded number of not-yet-known YC companies so it fits the crawl's
+// time budget. `npm run seed` still does the full, unbounded pass.
+const SEED_INTERVAL_MS = 20 * 60 * 60 * 1000 // ~once a day
+const SEED_MAX_PROBE = 40
+
+/** Discover a few new seed companies if we haven't seeded recently. Best-effort. */
+async function maybeSeed(now: Date): Promise<Date | null> {
+  const last = await getLastSeedAt()
+  if (last && now.getTime() - last.getTime() < SEED_INTERVAL_MS) return null
+  try {
+    const knownNames = await getKnownCompanyNames()
+    await discoverNewCompanies({ knownNames, maxProbe: SEED_MAX_PROBE })
+  } catch {
+    /* seeding is best-effort; never fail a crawl over it */
+  }
+  return new Date()
+}
 
 export type CrawlResult = {
   skipped?: 'overnight'
@@ -213,6 +235,10 @@ export async function runCrawl(opts: { now?: Date; force?: boolean } = {}): Prom
   // Supplemental aggregator feeds (own failure isolation; no close-missing in v1).
   await crawlAggregators(counters)
 
+  // Occasionally refresh the seed list (discover new YC companies). Gated to
+  // ~once/day and bounded, so it rides along with the crawl without slowing it.
+  const seededAt = await maybeSeed(now)
+
   const run = await recordRun({
     startedAt,
     finishedAt: new Date(),
@@ -222,6 +248,7 @@ export async function runCrawl(opts: { now?: Date; force?: boolean } = {}): Prom
     newJobs: counters.newJobs,
     skipped: false,
     errorSummary: errors.length ? errors.join('\n') : null,
+    seededAt,
   })
 
   return {
