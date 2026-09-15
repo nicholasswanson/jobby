@@ -13,7 +13,7 @@ export default async function InboxPage({
   const { feed: feedParam } = await searchParams
   const feed: InboxFeed = (INBOX_FEEDS as readonly string[]).includes(feedParam ?? '')
     ? (feedParam as InboxFeed)
-    : 'core'
+    : 'all'
   const [rows, [latestRun]] = await Promise.all([getInbox(feed), getLatestRun()])
   const now = new Date()
   // "New" = first seen in the most recent crawl (matches the header's "N new").
@@ -37,5 +37,5 @@ export default async function InboxPage({
     }
   })
 
-  return <InboxList items={items} feed={feed} />
+  return <InboxList items={items} />
 }

@@ -164,18 +164,15 @@ const CARD_SNIPPET = sql<string | null>`left(${jobs.description}, 800)`
 // Hard cutoff: never show jobs whose effective posted date is >90 days old.
 const WITHIN_90_DAYS = sql`coalesce(${jobs.postedAt}, ${jobs.firstSeen}) >= now() - interval '90 days'`
 
-// Role feeds. 'core' = the AM+sales combo (Erin's default); a specific category;
-// or 'all'. Maps to the set of category keys a job must overlap.
-export const INBOX_FEEDS = ['core', 'account_management', 'sales', 'engineering', 'all'] as const
+// Role feeds. 'all' (default) shows every category; the others filter to one.
+export const INBOX_FEEDS = ['all', 'account_management', 'sales', 'engineering'] as const
 export type InboxFeed = (typeof INBOX_FEEDS)[number]
 
 function feedCategories(feed: InboxFeed): string[] | null {
-  if (feed === 'all') return null
-  if (feed === 'core') return ['account_management', 'sales']
-  return [feed]
+  return feed === 'all' ? null : [feed]
 }
 
-export function getInbox(feed: InboxFeed = 'core') {
+export function getInbox(feed: InboxFeed = 'all') {
   const conds = [eq(jobs.status, 'inbox'), WITHIN_90_DAYS]
   const cats = feedCategories(feed)
   if (cats) {
