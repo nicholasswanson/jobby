@@ -96,12 +96,12 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
     <>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs text-zinc-400">{visible.length} to review</p>
-        <label className="flex items-center gap-1.5 text-xs text-zinc-500">
+        <label className="flex items-center gap-1 text-xs text-zinc-500">
           Posted
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+            className="cursor-pointer border-0 bg-transparent p-0 text-xs text-zinc-500 focus:outline-none"
           >
             {DATE_FILTERS.map((f) => (
               <option key={f.key} value={f.key}>
