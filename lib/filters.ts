@@ -87,7 +87,27 @@ export function classifyLocation(raw: string | null | undefined): LocationResult
 
 // --- Combined ----------------------------------------------------------------
 
-export type FilterInput = { title: string; location?: string | null }
+// Roles that demand a lot of experience are too senior for an early-career search.
+const YEARS_RE = /(\d{1,2})\s*\+?\s*(?:years?|yrs?)/gi
+const SENIOR_YEARS = 6 // exclude when the description requires >= this many years
+
+/** Max years-of-experience the description asks for (0 if none / not experience-related). */
+export function maxExperienceYears(text: string | null | undefined): number {
+  if (!text) return 0
+  let max = 0
+  for (const m of text.matchAll(YEARS_RE)) {
+    const idx = m.index ?? 0
+    const window = text.slice(Math.max(0, idx - 30), idx + 45).toLowerCase()
+    // Only count numbers clearly about required experience (reduce false positives).
+    if (/experience|exp\b|background|track record|selling|sales|account|success|professional|industry|relevant|minimum|at least/.test(window)) {
+      const n = Number(m[1])
+      if (n > max && n <= 40) max = n
+    }
+  }
+  return max
+}
+
+export type FilterInput = { title: string; location?: string | null; description?: string | null }
 
 // Why a matching-role job was excluded — surfaced in Settings › Filtered so the
 // user can review and override false negatives.
@@ -111,10 +131,12 @@ export type FilterResult =
 export const ENGINEERING =
   /\bengineer|\bengineering\b|\bdeveloper\b|\bsoftware\b|\bprogrammer\b|\bswe\b|data scientist|machine learning engineer/i
 
-export function filterJob({ title, location }: FilterInput): FilterResult {
+export function filterJob({ title, location, description }: FilterInput): FilterResult {
   if (!INCLUDE.test(title)) return { included: false, relevant: false }
   if (ENGINEERING.test(title)) return { included: false, relevant: false }
   if (EXCLUDE.test(title)) return { included: false, relevant: true, reason: 'seniority' }
+  if (maxExperienceYears(description) >= SENIOR_YEARS)
+    return { included: false, relevant: true, reason: 'seniority' }
   if (isNonNorthAmerica(title, location))
     return { included: false, relevant: true, reason: 'geo' }
   const loc = classifyLocation(location)

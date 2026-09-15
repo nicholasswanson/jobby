@@ -26,9 +26,29 @@ function decodeEntities(s: string): string {
  * where tags arrive as `&lt;p&gt;`) become real tags before stripping; a second
  * decode handles any double-encoding.
  */
+// Repair common source-side breakage: UTF-8 punctuation mis-decoded as
+// Windows-1252 (mojibake like "â€™" for ’) and literal escaped whitespace ("\n").
+function repairText(s: string): string {
+  return (
+    s
+      // literal escape sequences that arrive as text
+      .replace(/\\r\\n|\\n|\\r/g, '\n')
+      .replace(/\\t/g, ' ')
+      // mojibake — longest/most-specific first, then a catch-all for "â€"
+      .replace(/â€™/g, '’') // ’
+      .replace(/â€œ/g, '“') // “
+      .replace(/â€¦/g, '…') // …
+      .replace(/â€”/g, '—') // — (0x94)
+      .replace(/â€“/g, '–') // – (0x93)
+      .replace(/â€(?:)?/g, '”') // ” (catch-all)
+      .replace(/Â /g, ' ') // non-breaking space
+      .replace(/Â/g, '') // stray Â
+  )
+}
+
 export function htmlToText(input: string | null | undefined): string {
   if (!input) return ''
-  const decoded = decodeEntities(input)
+  const decoded = decodeEntities(repairText(input))
   const stripped = decoded
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
     // Bullets get a marker; block boundaries become newlines so structure survives.

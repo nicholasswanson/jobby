@@ -162,3 +162,24 @@ describe('non-North-America geo exclusion', () => {
     expect(filterJob({ title, location })).toMatchObject({ included: true })
   })
 })
+
+describe('experience-based seniority (description)', () => {
+  it('excludes roles that require many years of experience', () => {
+    expect(
+      filterJob({
+        title: 'Strategic Account Executive',
+        location: 'Remote',
+        description: '10+ years of experience in a customer-facing role such as Strategic Account Management.',
+      }),
+    ).toEqual({ included: false, relevant: true, reason: 'seniority' })
+  })
+  it('keeps early-career roles', () => {
+    expect(
+      filterJob({
+        title: 'Account Executive',
+        location: 'Remote',
+        description: '2-3 years of sales experience preferred; eager to learn.',
+      }),
+    ).toMatchObject({ included: true })
+  })
+})

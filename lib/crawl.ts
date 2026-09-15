@@ -44,7 +44,7 @@ type Counters = { jobsSeen: number; newJobs: number; filtered: number; seenJobId
  *  - not a target role               → skipped entirely (not stored)
  */
 async function ingestOne(companyId: number, p: NormalizedPosting, counters: Counters) {
-  const verdict = filterJob({ title: p.title, location: p.location })
+  const verdict = filterJob({ title: p.title, location: p.location, description: p.description })
   if (!verdict.included && !verdict.relevant) return // irrelevant role, don't store
 
   const included = verdict.included
@@ -92,7 +92,7 @@ async function crawlAggregators(counters: Counters) {
       const postings = agg.normalize(raw)
       for (const p of postings) {
         // Skip irrelevant roles before creating a company row for them.
-        const verdict = filterJob({ title: p.title, location: p.location })
+        const verdict = filterJob({ title: p.title, location: p.location, description: p.description })
         if (!verdict.included && !verdict.relevant) continue
         const name = p.companyName?.trim()
         if (!name) continue

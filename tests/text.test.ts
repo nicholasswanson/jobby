@@ -41,3 +41,12 @@ describe('descriptionSnippet', () => {
     expect(descriptionSnippet('<p>Great <em>remote</em> role.</p>')).toBe('Great remote role.')
   })
 })
+
+describe('repair (encoding fixes)', () => {
+  it('repairs Windows-1252 mojibake of smart quotes', () => {
+    expect(htmlToText('FreedomPayâ€™s solutions')).toBe('FreedomPay’s solutions')
+  })
+  it('converts literal escaped newlines to real breaks (dropped when standalone)', () => {
+    expect(htmlToText('First.\\nSecond.')).toBe('First.\nSecond.')
+  })
+})
