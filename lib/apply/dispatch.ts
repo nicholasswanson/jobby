@@ -12,11 +12,9 @@ export function applyAgentConfigured(): boolean {
   )
 }
 
-/** Returns true if the worker was dispatched. mode: 'fill' stops at review; 'submit' also submits. */
-export async function dispatchApplyWorker(jobId: number, mode: 'fill' | 'submit'): Promise<boolean> {
+async function repositoryDispatch(eventType: string, payload: Record<string, unknown> = {}): Promise<boolean> {
   const token = process.env.GH_DISPATCH_TOKEN
   if (!token) return false
-
   const res = await fetch(`https://api.github.com/repos/${REPO}/dispatches`, {
     method: 'POST',
     headers: {
@@ -25,10 +23,17 @@ export async function dispatchApplyWorker(jobId: number, mode: 'fill' | 'submit'
       'X-GitHub-Api-Version': '2022-11-28',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      event_type: 'apply',
-      client_payload: { jobId, mode },
-    }),
+    body: JSON.stringify({ event_type: eventType, client_payload: payload }),
   })
   return res.status === 204
+}
+
+/** Returns true if the worker was dispatched. mode: 'fill' stops at review; 'submit' also submits. */
+export function dispatchApplyWorker(jobId: number, mode: 'fill' | 'submit'): Promise<boolean> {
+  return repositoryDispatch('apply', { jobId, mode })
+}
+
+/** Fire the crawl workflow now (manual "Crawl now" button). */
+export function dispatchCrawl(): Promise<boolean> {
+  return repositoryDispatch('crawl-now')
 }

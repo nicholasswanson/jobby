@@ -2,11 +2,13 @@ name: crawl
 
 on:
   schedule:
-    # Fires every 30 minutes, 24/7. The /api/cron endpoint gates the overnight
-    # window (23:00–05:59 America/Los_Angeles) itself. GitHub's scheduler can
-    # drift a few minutes under load — acceptable for this use case.
+    # Fires ~every 30 minutes. GitHub throttles high-frequency schedules, so
+    # runs can be sparse — the in-app "Crawl now" button (repository_dispatch
+    # below) is the reliable manual trigger.
     - cron: "*/30 * * * *"
-  workflow_dispatch: {} # manual "crawl now" button
+  workflow_dispatch: {} # manual "Run workflow" button in the Actions tab
+  repository_dispatch:
+    types: [crawl-now] # fired by the app's "Crawl now" button
 
 # Avoid overlapping runs if one is slow.
 concurrency:
@@ -21,7 +23,9 @@ jobs:
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # Manual triggers force past the overnight gate; the schedule respects it.
+          FORCE: ${{ (github.event_name == 'schedule') && '' || '?force=1' }}
         run: |
           curl -fsS --max-time 120 \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "$APP_URL/api/cron"
+            "$APP_URL/api/cron$FORCE"

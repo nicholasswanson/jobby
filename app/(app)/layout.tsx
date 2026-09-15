@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import { AUTH_ENABLED } from '@/lib/auth'
 import HealthChip from './HealthChip'
+import CrawlNowButton from './CrawlNowButton'
 import { logout } from './actions'
 import NavLinks from './NavLinks'
 import PanelProvider from './PanelProvider'
@@ -18,6 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Suspense fallback={null}>
               <HealthChip />
             </Suspense>
+            <CrawlNowButton />
             {AUTH_ENABLED ? (
               <form action={logout}>
                 <button className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">

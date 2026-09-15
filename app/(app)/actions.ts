@@ -23,7 +23,7 @@ import {
 import { generateTailoredResume } from '@/lib/ai/tailor'
 import { enrichCompany } from '@/lib/ai/enrichCompany'
 import { detectAts } from '@/lib/apply/ats'
-import { applyAgentConfigured, dispatchApplyWorker } from '@/lib/apply/dispatch'
+import { applyAgentConfigured, dispatchApplyWorker, dispatchCrawl } from '@/lib/apply/dispatch'
 
 async function assertSession() {
   if (!AUTH_ENABLED) return // login temporarily disabled
@@ -164,6 +164,12 @@ export async function hideCompanyFromInbox(companyId: number) {
 export async function enrichCompanyDetail(companyId: number) {
   await assertSession()
   return enrichCompany(companyId)
+}
+
+/** Manually fire the crawl (the "Crawl now" button). Returns whether it dispatched. */
+export async function crawlNow() {
+  await assertSession()
+  return dispatchCrawl()
 }
 
 export async function logout() {

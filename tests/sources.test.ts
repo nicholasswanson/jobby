@@ -6,6 +6,9 @@ import { normalizeLever } from '@/lib/sources/lever'
 import { normalizeAshby } from '@/lib/sources/ashby'
 import { normalizeRemotive } from '@/lib/sources/remotive'
 import { normalizeWwr } from '@/lib/sources/wwr'
+import { normalizeRemoteOK } from '@/lib/sources/remoteok'
+import { normalizeWorkingNomads } from '@/lib/sources/workingnomads'
+import { normalizeHimalayas } from '@/lib/sources/himalayas'
 
 function fixture(name: string): string {
   const url = new URL(`./fixtures/${name}`, import.meta.url)
@@ -126,6 +129,82 @@ describe('normalizeWwr (aggregator, RSS)', () => {
     expect(out[2].location).toBeNull()
   })
   it('parses pubDate into a Date', () => {
+    expect(out[0].postedAt).toBeInstanceOf(Date)
+    expect(out[0].postedAt?.getUTCFullYear()).toBe(2026)
+  })
+})
+
+describe('normalizeRemoteOK (aggregator)', () => {
+  const out = normalizeRemoteOK([
+    { legal: 'notice, no position' },
+    {
+      id: 123,
+      company: 'Acme',
+      position: 'Account Executive',
+      location: 'US Remote',
+      description: '<p>Sell things.</p>',
+      url: 'https://remoteok.com/remote-jobs/123',
+      date: '2026-09-14T00:00:00+00:00',
+      salary_min: 70000,
+      salary_max: 90000,
+    },
+  ])
+  it('skips the legal-notice element and maps a job', () => {
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      externalId: '123',
+      title: 'Account Executive',
+      companyName: 'Acme',
+      location: 'US Remote',
+      salaryText: '$70k–$90k',
+    })
+    expect(out[0].description).toBe('Sell things.')
+  })
+})
+
+describe('normalizeWorkingNomads (aggregator)', () => {
+  const out = normalizeWorkingNomads([
+    {
+      url: 'https://www.workingnomads.com/jobs/x',
+      title: 'Sales Development Representative',
+      company_name: 'Globex',
+      location: 'Anywhere',
+      description: '<p>Prospect accounts.</p>',
+      pub_date: '2026-09-13T00:00:00Z',
+    },
+  ])
+  it('maps a job with company + location', () => {
+    expect(out[0]).toMatchObject({
+      title: 'Sales Development Representative',
+      companyName: 'Globex',
+      location: 'Anywhere',
+    })
+    expect(out[0].description).toBe('Prospect accounts.')
+  })
+})
+
+describe('normalizeHimalayas (aggregator)', () => {
+  const out = normalizeHimalayas([
+    {
+      title: 'Account Manager',
+      companyName: 'Initech',
+      applicationLink: 'https://himalayas.app/jobs/y',
+      guid: 555,
+      locationRestrictions: ['United States', 'Canada'],
+      description: '<p>Own accounts.</p>',
+      pubDate: 1780000000,
+      minSalary: 60000,
+      maxSalary: 80000,
+    },
+  ])
+  it('joins location restrictions and parses epoch pubDate', () => {
+    expect(out[0]).toMatchObject({
+      externalId: '555',
+      title: 'Account Manager',
+      companyName: 'Initech',
+      location: 'United States, Canada',
+      salaryText: '$60k–$80k',
+    })
     expect(out[0].postedAt).toBeInstanceOf(Date)
     expect(out[0].postedAt?.getUTCFullYear()).toBe(2026)
   })

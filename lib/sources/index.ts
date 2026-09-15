@@ -3,6 +3,9 @@ import { normalizeLever } from './lever'
 import { normalizeAshby } from './ashby'
 import { normalizeRemotive } from './remotive'
 import { normalizeWwr } from './wwr'
+import { normalizeRemoteOK } from './remoteok'
+import { normalizeWorkingNomads } from './workingnomads'
+import { normalizeHimalayas } from './himalayas'
 import type { NormalizedPosting } from './types'
 
 export type BoardAtsType = 'greenhouse' | 'lever' | 'ashby'
@@ -33,13 +36,15 @@ export function normalizeBoard(atsType: BoardAtsType, raw: unknown): NormalizedP
 }
 
 export type Aggregator = {
-  key: 'remotive' | 'wwr'
+  key: 'remotive' | 'wwr' | 'remoteok' | 'workingnomads' | 'himalayas'
   label: string
   url: string
   kind: 'json' | 'text'
   normalize: (raw: unknown) => NormalizedPosting[]
 }
 
+// Reputable remote-job boards with clean public feeds. Postings are role-filtered
+// downstream (lib/filters), so we pull the full feed and keep only AM/sales roles.
 export const AGGREGATORS: Aggregator[] = [
   {
     key: 'remotive',
@@ -54,6 +59,27 @@ export const AGGREGATORS: Aggregator[] = [
     url: 'https://weworkremotely.com/categories/remote-sales-and-marketing-jobs.rss',
     kind: 'text',
     normalize: (raw) => normalizeWwr(raw as string),
+  },
+  {
+    key: 'remoteok',
+    label: 'RemoteOK',
+    url: 'https://remoteok.com/api',
+    kind: 'json',
+    normalize: (raw) => normalizeRemoteOK(raw),
+  },
+  {
+    key: 'workingnomads',
+    label: 'Working Nomads',
+    url: 'https://www.workingnomads.com/api/exposed_jobs/',
+    kind: 'json',
+    normalize: (raw) => normalizeWorkingNomads(raw),
+  },
+  {
+    key: 'himalayas',
+    label: 'Himalayas',
+    url: 'https://himalayas.app/jobs/api',
+    kind: 'json',
+    normalize: (raw) => normalizeHimalayas(raw),
   },
 ]
 
