@@ -18,9 +18,9 @@ export default function CrawlNowButton() {
         })
       }
       className="text-xs text-zinc-500 hover:text-zinc-900 disabled:opacity-50 dark:hover:text-zinc-100"
-      title="Fire a crawl now"
+      title="Refresh listings now"
     >
-      {pending ? 'Starting…' : (msg ?? 'Crawl now')}
+      {pending ? 'Refreshing…' : (msg ?? 'Refresh')}
     </button>
   )
 }

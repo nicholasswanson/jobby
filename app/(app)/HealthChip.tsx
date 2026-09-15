@@ -12,7 +12,7 @@ export default async function HealthChip() {
   }
 
   if (!latest) {
-    return <Chip>No crawl yet</Chip>
+    return <Chip>Not updated yet</Chip>
   }
 
   const finished = latest.finishedAt ? new Date(latest.finishedAt) : null
@@ -35,7 +35,7 @@ export default async function HealthChip() {
   const newCount = latest.newJobs ?? 0
   const label = latest.skipped
     ? `Idle (overnight) · ${ago}`
-    : `Last crawl ${ago} · ${newCount} new`
+    : `Last updated ${ago} · ${newCount} new`
 
   // Plain gray text, no pill (amber text only when stale).
   return <Chip stale={stale}>{label}</Chip>
