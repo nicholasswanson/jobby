@@ -13,8 +13,14 @@
 
 export type RoleCategory = 'account_management' | 'sales' | 'engineering'
 
-const ENGINEERING_PATTERN =
-  /\bengineer|\bengineering\b|\bdeveloper\b|\bsoftware\b|\bprogrammer\b|\bswe\b|data scientist|machine learning|full[-\s]?stack|back[-\s]?end|front[-\s]?end|\bdevops\b|\bsre\b/i
+// SOFTWARE/tech engineering only (what a tech job-seeker wants). Electronics /
+// mechanical / hardware / "sales engineer" etc. are NOT this.
+const SOFTWARE_PATTERN =
+  /\bsoftware\b|software engineer|software developer|\bdeveloper\b|web developer|mobile (?:engineer|developer)|\bprogrammer\b|\bswe\b|full[-\s]?stack|back[-\s]?end|front[-\s]?end|\bdevops\b|\bsre\b|site reliability|platform engineer|infrastructure engineer|security engineer|data engineer|data scientist|machine learning|\bml\b engineer|\bai\b engineer|qa engineer|test engineer/i
+
+// Any other "…engineer/engineering" title — electronics, mechanical, sales,
+// customer-success engineer, etc. These are non-target technical roles.
+const NON_SOFTWARE_ENGINEER = /\bengineer|\bengineering\b/i
 
 export const ROLE_CATEGORIES: { key: RoleCategory; label: string; pattern: RegExp }[] = [
   {
@@ -29,12 +35,20 @@ export const ROLE_CATEGORIES: { key: RoleCategory; label: string; pattern: RegEx
     pattern:
       /account executive|\bae\b|sales development|(^|\W)sdr(\W|$)|(^|\W)bdr(\W|$)|business development|inside sales|sales associate|sales representative|sales rep\b/i,
   },
-  { key: 'engineering', label: 'Engineering', pattern: ENGINEERING_PATTERN },
+  { key: 'engineering', label: 'Engineering', pattern: SOFTWARE_PATTERN },
 ]
 
-/** Role categories a title belongs to. Engineering wins outright when present. */
+/**
+ * Role categories a title belongs to.
+ *  - Software/tech engineering → ['engineering'].
+ *  - Any other "…engineer" title (electronics, mechanical, sales engineer,
+ *    customer-success engineer) → [] (not a target role — keeps them out of AM
+ *    and out of the engineering feed).
+ *  - Otherwise, AM / sales matching.
+ */
 export function categorize(title: string): RoleCategory[] {
-  if (ENGINEERING_PATTERN.test(title)) return ['engineering']
+  if (SOFTWARE_PATTERN.test(title)) return ['engineering']
+  if (NON_SOFTWARE_ENGINEER.test(title)) return []
   return ROLE_CATEGORIES.filter((c) => c.key !== 'engineering' && c.pattern.test(title)).map(
     (c) => c.key,
   )

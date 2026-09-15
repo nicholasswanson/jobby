@@ -35,10 +35,17 @@ describe('categorize (role feeds)', () => {
     expect(categorize('Account Executive')).toEqual(['sales'])
     expect(categorize('Sales Development Representative')).toEqual(['sales'])
   })
-  it('routes anything with engineer to engineering (takes precedence)', () => {
+  it('routes software roles to engineering', () => {
     expect(categorize('Software Engineer')).toEqual(['engineering'])
-    expect(categorize('Customer Success Engineer')).toEqual(['engineering'])
-    expect(categorize('Sales Engineer')).toEqual(['engineering'])
+    expect(categorize('Backend Engineer')).toEqual(['engineering'])
+    expect(categorize('Data Scientist')).toEqual(['engineering'])
+    expect(categorize('DevOps Engineer')).toEqual(['engineering'])
+  })
+  it('drops non-software engineers entirely (not a target role)', () => {
+    expect(categorize('Electronics Engineer')).toEqual([])
+    expect(categorize('Mechanical Engineer')).toEqual([])
+    expect(categorize('Sales Engineer')).toEqual([])
+    expect(categorize('Customer Success Engineer')).toEqual([]) // keeps it out of AM too
   })
   it('returns [] for non-target roles', () => {
     expect(categorize('Product Designer')).toEqual([])
@@ -144,10 +151,17 @@ describe('filterJob (title + location combined)', () => {
     })
   })
 
-  it('includes engineering roles in the engineering category', () => {
-    expect(filterJob({ title: 'Customer Success Engineer', location: 'Remote' })).toMatchObject({
+  it('includes software roles in the engineering category', () => {
+    expect(filterJob({ title: 'Software Engineer', location: 'Remote' })).toMatchObject({
       included: true,
       categories: ['engineering'],
+    })
+  })
+
+  it('drops non-software engineers as irrelevant', () => {
+    expect(filterJob({ title: 'Electronics Engineer', location: 'United States' })).toEqual({
+      included: false,
+      relevant: false,
     })
   })
 })

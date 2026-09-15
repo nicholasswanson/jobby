@@ -124,7 +124,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {visible.map((item, idx) => (
             <JobCard
               key={item.id}

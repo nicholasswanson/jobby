@@ -1,10 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { REMOTE_BADGES, relativeDate } from '@/lib/format'
-import type { RemoteType } from '@/lib/filters'
+import { relativeDate } from '@/lib/format'
 import { enrichCompanyDetail, loadJobDetail } from './actions'
 import ApplySection from './ApplySection'
+
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      onClick={onClose}
+      aria-label="Close"
+      className="-mt-1 shrink-0 rounded-md px-2 py-1 text-lg leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+    >
+      ✕
+    </button>
+  )
+}
 
 type Detail = Awaited<ReturnType<typeof loadJobDetail>>
 
@@ -78,7 +89,6 @@ export default function JobDetailPanel({
   }, [jobId])
 
   const open = jobId != null
-  const badge = detail?.remoteType ? REMOTE_BADGES[detail.remoteType as RemoteType] : null
   const c = detail?.company
 
   return (
@@ -100,31 +110,19 @@ export default function JobDetailPanel({
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-          <span className="text-sm font-medium text-zinc-500">Job details</span>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-md px-2 py-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-          >
-            ✕
-          </button>
-        </div>
-
         <div className="flex-1 overflow-y-auto px-4 py-4">
           {loading || !detail ? (
-            <p className="text-sm text-zinc-400">Loading…</p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm text-zinc-400">Loading…</p>
+              <CloseButton onClose={onClose} />
+            </div>
           ) : (
             <>
-              <p className="text-sm text-zinc-500">{c?.name}</p>
-              <div className="mt-0.5 flex items-start justify-between gap-3">
-                <h2 className="text-lg font-semibold leading-snug">{detail.title}</h2>
-                {badge ? (
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
-                    {badge.label}
-                  </span>
-                ) : null}
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm text-zinc-500">{c?.name}</p>
+                <CloseButton onClose={onClose} />
               </div>
+              <h2 className="mt-0.5 text-lg font-semibold leading-snug">{detail.title}</h2>
 
               <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-zinc-500">
                 {detail.location ? <span>{detail.location}</span> : null}
