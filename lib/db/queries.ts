@@ -178,7 +178,13 @@ function feedCategories(feed: InboxFeed): string[] | null {
 export function getInbox(feed: InboxFeed = 'core') {
   const conds = [eq(jobs.status, 'inbox'), WITHIN_90_DAYS]
   const cats = feedCategories(feed)
-  if (cats) conds.push(sql`${jobs.categories} && ${cats}::text[]`)
+  if (cats) {
+    const arr = sql.join(
+      cats.map((c) => sql`${c}`),
+      sql`, `,
+    )
+    conds.push(sql`${jobs.categories} && ARRAY[${arr}]::text[]`)
+  }
   return db
     .select({
       id: jobs.id,
