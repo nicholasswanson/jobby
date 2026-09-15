@@ -6,7 +6,6 @@ const FEEDS = [
   { key: 'all', label: 'All' },
   { key: 'account_management', label: 'Account Management' },
   { key: 'sales', label: 'Entry-level Sales' },
-  { key: 'engineering', label: 'Engineering' },
 ] as const
 
 // "Jobby › [feed]" — only on the inbox.

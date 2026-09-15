@@ -13,6 +13,11 @@
 
 export type RoleCategory = 'account_management' | 'sales' | 'engineering'
 
+// Engineering is off for now (Erin's search is AM/sales only). Flip to true to
+// re-enable the engineering feed — categorize() will tag software roles again,
+// and it needs re-adding to INBOX_FEEDS (queries.ts) + FEEDS (FeedSwitcher.tsx).
+export const ENGINEERING_ENABLED = false
+
 // SOFTWARE/tech engineering only (what a tech job-seeker wants). Electronics /
 // mechanical / hardware / "sales engineer" etc. are NOT this.
 const SOFTWARE_PATTERN =
@@ -47,7 +52,7 @@ export const ROLE_CATEGORIES: { key: RoleCategory; label: string; pattern: RegEx
  *  - Otherwise, AM / sales matching.
  */
 export function categorize(title: string): RoleCategory[] {
-  if (SOFTWARE_PATTERN.test(title)) return ['engineering']
+  if (SOFTWARE_PATTERN.test(title)) return ENGINEERING_ENABLED ? ['engineering'] : []
   if (NON_SOFTWARE_ENGINEER.test(title)) return []
   return ROLE_CATEGORIES.filter((c) => c.key !== 'engineering' && c.pattern.test(title)).map(
     (c) => c.key,
