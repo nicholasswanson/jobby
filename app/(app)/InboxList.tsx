@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react'
-import { REMOTE_BADGES } from '@/lib/format'
 import type { RemoteType } from '@/lib/filters'
 import { hideCompanyFromInbox, triageJob } from './actions'
 import { usePanel } from './PanelProvider'
@@ -18,6 +17,7 @@ export type InboxItem = {
   url: string
   postedLabel: string
   postedAtMs: number | null
+  isNew: boolean
 }
 
 type RemoveAction = { kind: 'job'; id: number } | { kind: 'company'; companyId: number }
@@ -130,6 +130,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
               key={item.id}
               item={item}
               selected={idx === Math.min(selected, visible.length - 1)}
+              isOpen={detailId === item.id}
               onOpen={() => openJob(item.id)}
               onTriage={triage}
               onHideCompany={hideCompany}
@@ -144,19 +145,20 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
 function JobCard({
   item,
   selected,
+  isOpen,
   onOpen,
   onTriage,
   onHideCompany,
 }: {
   item: InboxItem
   selected: boolean
+  isOpen: boolean
   onOpen: () => void
   onTriage: (id: number, status: 'interested' | 'not_a_fit') => void
   onHideCompany: (companyId: number) => void
 }) {
   const [dragX, setDragX] = useState(0)
   const startX = useRef<number | null>(null)
-  const badge = item.remoteType ? REMOTE_BADGES[item.remoteType] : null
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX
@@ -180,27 +182,27 @@ function JobCard({
       onTouchEnd={onTouchEnd}
       style={{ transform: dragX ? `translateX(${dragX}px)` : undefined }}
       className={`cursor-pointer rounded-2xl border p-4 transition-shadow ${
-        selected
-          ? 'border-zinc-900 shadow-sm dark:border-zinc-100'
-          : 'border-zinc-200 dark:border-zinc-800'
+        isOpen
+          ? 'border-zinc-900 shadow-sm dark:border-zinc-100' // white outline = open in the panel
+          : selected
+            ? 'border-zinc-300 dark:border-zinc-700' // faint = keyboard-selected
+            : 'border-zinc-200 dark:border-zinc-800'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm text-zinc-500">{item.companyName}</p>
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="block text-base font-semibold leading-snug hover:underline"
-          >
-            {item.title}
-          </a>
-        </div>
-        {badge ? (
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
-            {badge.label}
+      <p className="truncate text-sm text-zinc-500">{item.companyName}</p>
+      <div className="flex items-baseline gap-2">
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="min-w-0 text-base font-semibold leading-snug hover:underline"
+        >
+          {item.title}
+        </a>
+        {item.isNew ? (
+          <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+            New
           </span>
         ) : null}
       </div>

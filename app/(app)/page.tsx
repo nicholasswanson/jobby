@@ -5,6 +5,8 @@ import InboxList, { type InboxItem } from './InboxList'
 
 export const dynamic = 'force-dynamic'
 
+const DAY_MS = 86_400_000
+
 export default async function InboxPage() {
   const rows = await getInbox()
   const now = new Date()
@@ -23,6 +25,8 @@ export default async function InboxPage() {
       url: r.url,
       postedLabel: relativeDate(effective, now),
       postedAtMs: effective ? new Date(effective).getTime() : null,
+      // "New" = first appeared in the inbox within the last 24h.
+      isNew: r.firstSeen ? now.getTime() - new Date(r.firstSeen).getTime() < DAY_MS : false,
     }
   })
 
