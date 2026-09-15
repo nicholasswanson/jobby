@@ -8,11 +8,11 @@ Read `technical_plan.md` first for architecture, schema, endpoints, and filter s
 
 ## Phase 0 — Scaffold
 
-- [ ] `create-next-app` (TypeScript, App Router, Tailwind); Drizzle + Neon serverless driver; Vitest.
+- [ ] `create-next-app` (TypeScript, App Router, Tailwind); Drizzle + `postgres` (postgres-js) driver; Vitest.
 - [ ] Repo hygiene: `.env.example` listing all four env vars, `README.md` stub, this doc set at repo root.
-- [ ] Create Neon project; wire `DATABASE_URL` locally and in Vercel.
+- [ ] Create Supabase project; wire `DATABASE_URL` (transaction pooler, port 6543) locally and in Vercel.
 
-**Done when:** app deploys to Vercel and connects to Neon from a test route.
+**Done when:** app deploys to Vercel and connects to Supabase from a test route.
 
 ## Phase 1 — Schema & data layer
 
@@ -20,7 +20,7 @@ Read `technical_plan.md` first for architecture, schema, endpoints, and filter s
 - [ ] Migration generated and applied; unique constraints verified (`jobs.dedupe_hash`, `companies (ats_type, slug)`).
 - [ ] Query helpers: `getInbox()`, `getInterested()`, `setJobStatus()`, `upsertJob()`, `recordRun()`.
 
-**Done when:** helpers pass integration tests against a dev branch database.
+**Done when:** helpers pass integration tests against the Supabase database.
 
 ## Phase 2 — Seed list builder ⚠ validation gate
 

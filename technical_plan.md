@@ -8,7 +8,7 @@ A remote job-discovery dashboard for early-career account management / sales rol
 |---|---|---|
 | Framework | Next.js (App Router, TypeScript) | UI + API routes in one deploy |
 | Hosting | Vercel (Hobby) | Cron NOT used — see Scheduling |
-| Database | Neon Postgres | Serverless driver (`@neondatabase/serverless`) |
+| Database | Supabase (Postgres) | postgres-js driver (`postgres`) over the Supabase transaction pooler (port 6543) for serverless |
 | ORM | Drizzle | Schema-as-code, `drizzle-kit` migrations |
 | Styling | Tailwind CSS | |
 | Scheduler | GitHub Actions | Free 30-min trigger; Vercel Hobby cron is daily-only |
@@ -28,7 +28,7 @@ Crawl pipeline
   → normalize → filter → dedupe → upsert
         │
         ▼
-Neon Postgres ◄── Next.js dashboard (inbox / interested / companies)
+Supabase Postgres ◄── Next.js dashboard (inbox / interested / companies)
 ```
 
 ## Data model
@@ -143,7 +143,7 @@ Middleware checks a signed httpOnly cookie; `/login` posts the shared password (
 ## Environment variables
 
 ```
-DATABASE_URL      # Neon connection string
+DATABASE_URL      # Supabase Postgres connection string (transaction pooler, port 6543)
 CRON_SECRET       # bearer token for /api/cron (also a GitHub Actions secret)
 APP_PASSWORD      # shared login password
 COOKIE_SECRET     # cookie signing key
