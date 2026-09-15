@@ -169,9 +169,18 @@ jobs:
 
 Note: GitHub Actions schedules can drift a few minutes under load — acceptable for this use case. `workflow_dispatch` gives a manual "crawl now" button.
 
+## Résumé tailoring + Apply agent (added post-v1)
+
+- **Storage** (`lib/db/schema.ts`): `resume` (base résumé PDF, base64), `application_profile` (reusable application fields + reusable Q&A + `decline_demographics`), `job_tailoring` (per-job tailored résumé), `applications` (per-job apply-agent run).
+- **Settings › Résumé** (`app/(app)/settings/ResumeTab.tsx`): upload the PDF, edit the application profile.
+- **Tailoring** (`lib/ai/tailor.ts`): on `triageJob(interested)`, `after()` calls Claude (`claude-opus-4-8`) with the résumé PDF as a document block + a strict **no-fabrication** prompt → `{tailoredMarkdown, rationale}`. Downloaded as a clean PDF via `/api/tailored/[jobId]` (react-pdf). Never invents facts.
+- **Apply agent** (`lib/apply/*`, `scripts/apply.ts`, `.github/workflows/apply.yml`): the app fires `repository_dispatch` → a GitHub Actions worker drives a **Browserbase** remote browser over CDP (`playwright-core`). It extracts the ATS form fields and asks Claude (`lib/apply/plan.ts`) to map each to the profile — filling personal fields, **checking work-authorization**, **declining optional demographic/EEO** questions, answering matching screening Qs, and **skipping anything it can't answer from the profile** (no fabrication). It attaches the tailored résumé, screenshots the filled form, and pauses at `needs_review`; the user approves → it submits. **Scope: Greenhouse/Lever/Ashby anonymous-apply forms**; Workday/iCIMS/Taleo and unknown ATS → manual deep-link.
+- **ToS/safety:** automated ATS submission carries ToS/anti-bot risk — mitigated by Browserbase stealth, **human confirm-before-submit** (default), and per-job concurrency limits.
+- **Env:** `ANTHROPIC_API_KEY`, `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID`, `GH_DISPATCH_TOKEN` (in addition to the original four).
+
 ## Deferred (explicitly out of v1)
 
 - Claude API scoring pass (fit score + "why it matched"; can learn from accumulated `not_a_fit` verdicts)
-- Actions on interested jobs (outreach drafts, resume tailoring, applied-tracking)
 - Email/SMS digest of new inbox items
 - Multi-user accounts
+- Apply agent for account-walled ATS (Workday/iCIMS/Taleo); browser-use tool (`browser_toolset_20260801`) as an upgrade to the deterministic + field-mapping approach

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { REMOTE_BADGES, relativeDate } from '@/lib/format'
 import type { RemoteType } from '@/lib/filters'
 import { loadJobDetail } from './actions'
+import ApplySection from './ApplySection'
 
 type Detail = Awaited<ReturnType<typeof loadJobDetail>>
 
@@ -105,6 +106,9 @@ export default function JobDetailPanel({
               >
                 View & apply ↗
               </a>
+
+              {/* Résumé tailoring + one-click apply */}
+              <ApplySection jobId={detail.id} applyUrl={detail.url} />
 
               {/* Company breakdown */}
               {c ? (

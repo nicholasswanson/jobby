@@ -1,0 +1,32 @@
+name: apply
+
+# Fired by the app via repository_dispatch when the user clicks "Apply with Jobby".
+# Runs the Browserbase + Claude apply agent. No local browser is installed —
+# playwright-core connects to a remote Browserbase session over CDP.
+on:
+  repository_dispatch:
+    types: [apply]
+
+concurrency:
+  group: apply-${{ github.event.client_payload.jobId }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Run apply agent
+        env:
+          JOB_ID: ${{ github.event.client_payload.jobId }}
+          APPLY_MODE: ${{ github.event.client_payload.mode }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BROWSERBASE_API_KEY: ${{ secrets.BROWSERBASE_API_KEY }}
+          BROWSERBASE_PROJECT_ID: ${{ secrets.BROWSERBASE_PROJECT_ID }}
+        run: npx tsx scripts/apply.ts
