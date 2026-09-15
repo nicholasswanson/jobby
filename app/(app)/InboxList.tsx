@@ -43,6 +43,18 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
   const [dateFilter, setDateFilter] = useState<(typeof DATE_FILTERS)[number]['key']>('any')
   const { jobId: detailId, openJob, close } = usePanel()
 
+  // Remember the posted-date range locally between visits.
+  useEffect(() => {
+    const saved = localStorage.getItem('jobby.posted')
+    if (saved && DATE_FILTERS.some((f) => f.key === saved)) {
+      setDateFilter(saved as typeof dateFilter)
+    }
+  }, [])
+  const setPosted = (key: typeof dateFilter) => {
+    setDateFilter(key)
+    localStorage.setItem('jobby.posted', key)
+  }
+
   const visible = useMemo(() => {
     const conf = DATE_FILTERS.find((f) => f.key === dateFilter)
     if (!conf?.days) return optimisticItems
@@ -100,7 +112,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
           Posted
           <select
             value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}
+            onChange={(e) => setPosted(e.target.value as typeof dateFilter)}
             className="cursor-pointer border-0 bg-transparent p-0 text-xs text-zinc-500 focus:outline-none"
           >
             {DATE_FILTERS.map((f) => (

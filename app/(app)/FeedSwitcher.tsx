@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 const FEEDS = [
@@ -8,15 +9,31 @@ const FEEDS = [
   { key: 'sales', label: 'Entry-level Sales' },
 ] as const
 
+const STORE_KEY = 'jobby.feed'
+
 // "Jobby › [feed]" — only on the inbox.
 export default function FeedSwitcher() {
   const pathname = usePathname()
   const params = useSearchParams()
   const router = useRouter()
-  if (pathname !== '/') return null
+  const feedParam = params.get('feed')
+  const onInbox = pathname === '/'
 
-  const raw = params.get('feed') ?? 'all'
+  const raw = feedParam ?? 'all'
   const current = FEEDS.some((f) => f.key === raw) ? raw : 'all'
+
+  // Restore the last-selected feed when landing on a bare inbox URL.
+  useEffect(() => {
+    if (!onInbox || feedParam != null) return
+    const saved = localStorage.getItem(STORE_KEY)
+    if (saved && saved !== 'all' && FEEDS.some((f) => f.key === saved)) {
+      router.replace(`/?feed=${saved}`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  if (!onInbox) return null
+
   const label = FEEDS.find((f) => f.key === current)?.label ?? 'All'
 
   return (
@@ -34,6 +51,7 @@ export default function FeedSwitcher() {
           value={current}
           onChange={(e) => {
             const v = e.target.value
+            localStorage.setItem(STORE_KEY, v)
             router.push(v === 'all' ? '/' : `/?feed=${v}`)
           }}
           className="absolute inset-0 cursor-pointer opacity-0"
