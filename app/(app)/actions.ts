@@ -21,7 +21,6 @@ import {
   upsertTailoring,
 } from '@/lib/db/queries'
 import { generateTailoredResume } from '@/lib/ai/tailor'
-import { enrichCompany } from '@/lib/ai/enrichCompany'
 import { detectAts } from '@/lib/apply/ats'
 import { applyAgentConfigured, dispatchApplyWorker, dispatchCrawl } from '@/lib/apply/dispatch'
 
@@ -158,12 +157,6 @@ export async function hideCompanyFromInbox(companyId: number) {
   revalidatePath('/')
   revalidatePath('/companies')
   revalidatePath('/settings')
-}
-
-/** Enrich a company's profile on demand (used when the detail panel has sparse info). */
-export async function enrichCompanyDetail(companyId: number) {
-  await assertSession()
-  return enrichCompany(companyId)
 }
 
 /** Manually fire the crawl (the "Crawl now" button). Returns whether it dispatched. */

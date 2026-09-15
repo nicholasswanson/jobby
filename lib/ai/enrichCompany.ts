@@ -40,10 +40,9 @@ export async function enrichCompany(companyId: number): Promise<CompanyEnrichmen
   try {
     const message = await anthropic().messages.create({
       model: CLAUDE_MODEL,
-      max_tokens: 2000,
-      thinking: { type: 'adaptive' },
+      max_tokens: 1500,
       system: SYSTEM,
-      tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 4 }],
+      tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }],
       messages: [
         {
           role: 'user',

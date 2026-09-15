@@ -1,7 +1,9 @@
 'use client'
 
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import JobDetailPanel from './JobDetailPanel'
+
+const STORE_KEY = 'jobby.panel'
 
 type PanelCtx = { jobId: number | null; openJob: (id: number) => void; close: () => void }
 
@@ -19,14 +21,28 @@ export default function PanelProvider({ children }: { children: React.ReactNode 
   const [jobId, setJobId] = useState<number | null>(null)
   const open = jobId != null
 
+  // Keep the open job across refreshes.
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(STORE_KEY))
+    if (Number.isFinite(saved) && saved > 0) setJobId(saved)
+  }, [])
+  const openJob = (id: number) => {
+    setJobId(id)
+    localStorage.setItem(STORE_KEY, String(id))
+  }
+  const close = () => {
+    setJobId(null)
+    localStorage.removeItem(STORE_KEY)
+  }
+
   return (
-    <Ctx.Provider value={{ jobId, openJob: setJobId, close: () => setJobId(null) }}>
+    <Ctx.Provider value={{ jobId, openJob, close }}>
       {/* Outer wrapper reserves the panel's half when open; the inner column keeps
           its fixed max-w-2xl width and just re-centers into the remaining space. */}
       <div className={`flex-1 transition-[padding] duration-200 ${open ? 'lg:pr-[50vw]' : ''}`}>
         <div className="mx-auto w-full max-w-2xl px-6 py-4">{children}</div>
       </div>
-      <JobDetailPanel jobId={jobId} onClose={() => setJobId(null)} />
+      <JobDetailPanel jobId={jobId} onClose={close} />
     </Ctx.Provider>
   )
 }

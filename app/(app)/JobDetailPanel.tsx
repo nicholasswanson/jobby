@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { relativeDate } from '@/lib/format'
-import { enrichCompanyDetail, loadJobDetail } from './actions'
+import { loadJobDetail } from './actions'
 import ApplySection from './ApplySection'
 
 function CloseButton({ onClose }: { onClose: () => void }) {
@@ -63,12 +63,15 @@ export default function JobDetailPanel({
     if (!companyId || !companySparse) return
     let active = true
     setEnriching(true)
-    enrichCompanyDetail(companyId)
+    // Route handler (not a server action) so it doesn't block panel navigation.
+    fetch(`/api/companies/${companyId}/enrich`, { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : null))
       .then((res) => {
         if (active && res) {
           setDetail((d) => (d && d.company ? { ...d, company: { ...d.company, ...res } } : d))
         }
       })
+      .catch(() => {})
       .finally(() => active && setEnriching(false))
     return () => {
       active = false
@@ -141,7 +144,7 @@ export default function JobDetailPanel({
                     <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{c.oneLiner}</p>
                   ) : enriching ? (
                     <p className="mt-1 flex items-center gap-2 text-sm text-zinc-400">
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-300 border-t-transparent dark:border-zinc-600" />
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent dark:border-zinc-500 dark:border-t-transparent" />
                       Researching company…
                     </p>
                   ) : null}
