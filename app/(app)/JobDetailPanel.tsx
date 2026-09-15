@@ -65,6 +65,16 @@ export default function JobDetailPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, companySparse])
 
+  // Offset the panel below the sticky header so it doesn't cover the nav.
+  const [headerH, setHeaderH] = useState(0)
+  useEffect(() => {
+    const measure = () =>
+      setHeaderH(document.querySelector('header')?.getBoundingClientRect().height ?? 0)
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [jobId])
+
   const open = jobId != null
   const badge = detail?.remoteType ? REMOTE_BADGES[detail.remoteType as RemoteType] : null
   const c = detail?.company
@@ -79,11 +89,12 @@ export default function JobDetailPanel({
         }`}
         aria-hidden={!open}
       />
-      {/* Drawer — pushes content on lg (see PanelProvider right padding). */}
+      {/* Drawer — sits below the sticky header; pushes content on lg. */}
       <aside
         role="dialog"
         aria-modal="true"
-        className={`fixed right-0 top-0 z-30 flex h-full w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform duration-200 lg:max-w-[27rem] dark:border-zinc-800 dark:bg-zinc-950 ${
+        style={{ top: headerH, height: `calc(100% - ${headerH}px)` }}
+        className={`fixed right-0 z-30 flex w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform duration-200 lg:max-w-[27rem] dark:border-zinc-800 dark:bg-zinc-950 ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
