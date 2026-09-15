@@ -4,6 +4,7 @@ import { AUTH_ENABLED } from '@/lib/auth'
 import HealthChip from './HealthChip'
 import { logout } from './actions'
 import NavLinks from './NavLinks'
+import PanelProvider from './PanelProvider'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -13,16 +14,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Link href="/" className="text-base font-semibold tracking-tight">
             Jobby
           </Link>
-          <Suspense fallback={null}>
-            <HealthChip />
-          </Suspense>
-          <div className="flex items-center gap-3 text-xs text-zinc-500">
-            <Link href="/settings" className="hover:text-zinc-900 dark:hover:text-zinc-100">
-              Settings
-            </Link>
+          <div className="flex items-center gap-3">
+            <Suspense fallback={null}>
+              <HealthChip />
+            </Suspense>
             {AUTH_ENABLED ? (
               <form action={logout}>
-                <button className="hover:text-zinc-900 dark:hover:text-zinc-100">Sign out</button>
+                <button className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+                  Sign out
+                </button>
               </form>
             ) : null}
           </div>
@@ -30,7 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <NavLinks />
       </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-4">{children}</main>
+      <PanelProvider>{children}</PanelProvider>
     </div>
   )
 }

@@ -71,19 +71,19 @@ export default function JobDetailPanel({
 
   return (
     <>
-      {/* Overlay */}
+      {/* Scrim on mobile only — on desktop the panel pushes content instead. */}
       <div
         onClick={onClose}
-        className={`fixed inset-0 z-20 bg-black/40 transition-opacity ${
+        className={`fixed inset-0 z-20 bg-black/40 transition-opacity lg:hidden ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         aria-hidden={!open}
       />
-      {/* Drawer */}
+      {/* Drawer — pushes content on lg (see PanelProvider right padding). */}
       <aside
         role="dialog"
         aria-modal="true"
-        className={`fixed right-0 top-0 z-30 flex h-full w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform duration-200 dark:border-zinc-800 dark:bg-zinc-950 ${
+        className={`fixed right-0 top-0 z-30 flex h-full w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform duration-200 lg:max-w-[27rem] dark:border-zinc-800 dark:bg-zinc-950 ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

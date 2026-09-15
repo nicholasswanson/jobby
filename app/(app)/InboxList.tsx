@@ -4,7 +4,7 @@ import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } fr
 import { REMOTE_BADGES } from '@/lib/format'
 import type { RemoteType } from '@/lib/filters'
 import { hideCompanyFromInbox, triageJob } from './actions'
-import JobDetailPanel from './JobDetailPanel'
+import { usePanel } from './PanelProvider'
 
 export type InboxItem = {
   id: number
@@ -41,7 +41,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
   const [, startTransition] = useTransition()
   const [selected, setSelected] = useState(0)
   const [dateFilter, setDateFilter] = useState<(typeof DATE_FILTERS)[number]['key']>('any')
-  const [detailId, setDetailId] = useState<number | null>(null)
+  const { jobId: detailId, openJob, close } = usePanel()
 
   const visible = useMemo(() => {
     const conf = DATE_FILTERS.find((f) => f.key === dateFilter)
@@ -53,7 +53,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
   const triage = (id: number, status: 'interested' | 'not_a_fit') => {
     startTransition(async () => {
       removeOptimistic({ kind: 'job', id })
-      if (detailId === id && status === 'not_a_fit') setDetailId(null)
+      if (detailId === id && status === 'not_a_fit') close()
       await triageJob(id, status)
     })
   }
@@ -130,15 +130,13 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
               key={item.id}
               item={item}
               selected={idx === Math.min(selected, visible.length - 1)}
-              onOpen={() => setDetailId(item.id)}
+              onOpen={() => openJob(item.id)}
               onTriage={triage}
               onHideCompany={hideCompany}
             />
           ))}
         </div>
       )}
-
-      <JobDetailPanel jobId={detailId} onClose={() => setDetailId(null)} />
     </>
   )
 }

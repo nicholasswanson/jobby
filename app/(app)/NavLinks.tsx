@@ -7,6 +7,7 @@ const TABS = [
   { href: '/', label: 'Inbox' },
   { href: '/interested', label: 'Interested' },
   { href: '/companies', label: 'Companies' },
+  { href: '/settings', label: 'Settings' },
 ]
 
 export default function NavLinks() {

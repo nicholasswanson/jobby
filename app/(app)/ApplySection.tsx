@@ -9,6 +9,7 @@ import {
   regenerateTailoring,
   startApplication,
   submitApplication,
+  triageJob,
 } from './actions'
 
 type Tailoring = Awaited<ReturnType<typeof loadTailoring>>
@@ -100,7 +101,20 @@ export default function ApplySection({ jobId, applyUrl }: { jobId: number; apply
       {/* Apply control — primary action + View, side by side */}
       <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
         <div className="flex flex-wrap gap-2">
-          {ats && status === 'needs_review' ? (
+          {!tailoring ? (
+            <button
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  await triageJob(jobId, 'interested')
+                  await refresh()
+                })
+              }
+              className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Interested
+            </button>
+          ) : ats && status === 'needs_review' ? (
             <button
               disabled={pending}
               onClick={() => start(() => submitApplication(jobId).then(refresh))}

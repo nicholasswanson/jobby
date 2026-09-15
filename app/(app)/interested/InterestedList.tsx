@@ -1,9 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import { REMOTE_BADGES } from '@/lib/format'
 import type { RemoteType } from '@/lib/filters'
-import JobDetailPanel from '../JobDetailPanel'
+import { usePanel } from '../PanelProvider'
 
 export type InterestedItem = {
   id: number
@@ -19,7 +18,7 @@ export type InterestedItem = {
 }
 
 export default function InterestedList({ items }: { items: InterestedItem[] }) {
-  const [detailId, setDetailId] = useState<number | null>(null)
+  const { openJob } = usePanel()
 
   return (
     <>
@@ -30,7 +29,7 @@ export default function InterestedList({ items }: { items: InterestedItem[] }) {
           return (
             <div
               key={r.id}
-              onClick={() => setDetailId(r.id)}
+              onClick={() => openJob(r.id)}
               className="cursor-pointer rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800"
             >
               <div className="flex items-start justify-between gap-3">
@@ -74,8 +73,6 @@ export default function InterestedList({ items }: { items: InterestedItem[] }) {
           )
         })}
       </div>
-
-      <JobDetailPanel jobId={detailId} onClose={() => setDetailId(null)} />
     </>
   )
 }

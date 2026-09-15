@@ -12,7 +12,7 @@ export default async function HealthChip() {
   }
 
   if (!latest) {
-    return <Chip tone="muted">No crawl yet</Chip>
+    return <Chip>No crawl yet</Chip>
   }
 
   const finished = latest.finishedAt ? new Date(latest.finishedAt) : null
@@ -37,17 +37,13 @@ export default async function HealthChip() {
     ? `Idle (overnight) · ${ago}`
     : `Last crawl ${ago} · ${newCount} new`
 
-  return <Chip tone={stale ? 'warn' : 'ok'}>{label}</Chip>
+  // Plain gray text, no pill (amber text only when stale).
+  return <Chip stale={stale}>{label}</Chip>
 }
 
-function Chip({ children, tone }: { children: React.ReactNode; tone: 'ok' | 'warn' | 'muted' }) {
-  const tones = {
-    ok: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-    warn: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-    muted: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400',
-  }
+function Chip({ children, stale }: { children: React.ReactNode; stale?: boolean }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${tones[tone]}`}>
+    <span className={`text-xs ${stale ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}`}>
       {children}
     </span>
   )
