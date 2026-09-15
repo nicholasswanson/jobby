@@ -199,6 +199,12 @@ export async function runApply(jobId: number, mode: 'fill' | 'submit'): Promise<
     try {
       const context = browser.contexts()[0] ?? (await browser.newContext())
       const page = context.pages()[0] ?? (await context.newPage())
+      // tsx/esbuild "keepNames" wraps functions with a __name() helper that leaks
+      // into page.evaluate's serialized body; polyfill it in every page context.
+      await page.addInitScript(() => {
+        // @ts-expect-error - defining a browser global
+        window.__name = window.__name || ((fn: unknown) => fn)
+      })
       await page.goto(app.applyUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 })
 
       // Some boards hide the form behind an "Apply" button.
