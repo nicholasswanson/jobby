@@ -1,0 +1,42 @@
+[
+  {
+    "id": "8f2a1c00-1111-4a2b-9c3d-000000000001",
+    "text": "Account Manager",
+    "hostedUrl": "https://jobs.lever.co/novaml/8f2a1c00-1111-4a2b-9c3d-000000000001",
+    "applyUrl": "https://jobs.lever.co/novaml/8f2a1c00-1111-4a2b-9c3d-000000000001/apply",
+    "createdAt": 1757520000000,
+    "categories": {
+      "commitment": "Full-time",
+      "location": "Remote — US only",
+      "team": "Sales"
+    },
+    "salaryRange": {
+      "min": 65000,
+      "max": 85000,
+      "currency": "USD",
+      "interval": "per-year-salary"
+    }
+  },
+  {
+    "id": "8f2a1c00-1111-4a2b-9c3d-000000000002",
+    "text": "Director of Sales",
+    "hostedUrl": "https://jobs.lever.co/novaml/8f2a1c00-1111-4a2b-9c3d-000000000002",
+    "createdAt": 1757347200000,
+    "categories": {
+      "commitment": "Full-time",
+      "location": "New York, NY",
+      "team": "Sales"
+    }
+  },
+  {
+    "id": "8f2a1c00-1111-4a2b-9c3d-000000000003",
+    "text": "Business Development Representative",
+    "hostedUrl": "https://jobs.lever.co/novaml/8f2a1c00-1111-4a2b-9c3d-000000000003",
+    "createdAt": 1757606400000,
+    "categories": {
+      "commitment": "Full-time",
+      "allLocations": ["Remote (Canada)", "Remote (US)"],
+      "team": "Growth"
+    }
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "jobs": [
+    {
+      "id": 5501001,
+      "title": "Account Executive",
+      "updated_at": "2026-09-10T14:22:00-04:00",
+      "location": { "name": "Remote - US" },
+      "absolute_url": "https://boards.greenhouse.io/acmeai/jobs/5501001",
+      "metadata": [
+        { "name": "Salary Range", "value": "$70,000 - $90,000 OTE" }
+      ]
+    },
+    {
+      "id": 5501002,
+      "title": "Senior Account Executive",
+      "updated_at": "2026-09-09T09:00:00-04:00",
+      "location": { "name": "Remote" },
+      "absolute_url": "https://boards.greenhouse.io/acmeai/jobs/5501002",
+      "metadata": []
+    },
+    {
+      "id": 5501003,
+      "title": "Sales Development Representative",
+      "updated_at": "2026-09-11T11:30:00-04:00",
+      "location": { "name": "San Francisco, CA" },
+      "absolute_url": "https://boards.greenhouse.io/acmeai/jobs/5501003",
+      "metadata": null
+    }
+  ]
+}

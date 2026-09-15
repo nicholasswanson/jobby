@@ -1,0 +1,35 @@
+{
+  "job-count": 3,
+  "jobs": [
+    {
+      "id": 990001,
+      "url": "https://remotive.com/remote-jobs/sales/account-associate-990001",
+      "title": "Account Associate",
+      "company_name": "Bright Labs",
+      "category": "Sales",
+      "candidate_required_location": "USA Only",
+      "salary": "$55,000 - $70,000",
+      "publication_date": "2026-09-11T00:00:00"
+    },
+    {
+      "id": 990002,
+      "url": "https://remotive.com/remote-jobs/sales/vp-of-sales-990002",
+      "title": "VP of Sales",
+      "company_name": "Bright Labs",
+      "category": "Sales",
+      "candidate_required_location": "Worldwide",
+      "salary": "",
+      "publication_date": "2026-09-07T00:00:00"
+    },
+    {
+      "id": 990003,
+      "url": "https://remotive.com/remote-jobs/sales/inside-sales-990003",
+      "title": "Inside Sales Associate",
+      "company_name": "Lumen AI",
+      "category": "Sales",
+      "candidate_required_location": "",
+      "salary": null,
+      "publication_date": "2026-09-13T00:00:00"
+    }
+  ]
+}

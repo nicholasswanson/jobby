@@ -1,0 +1,39 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "title": "Customer Success Associate",
+      "location": "Remote",
+      "isRemote": true,
+      "publishedDate": "2026-09-08T18:00:00.000Z",
+      "employmentType": "FullTime",
+      "jobUrl": "https://jobs.ashbyhq.com/orbit/a1b2c3d4-0001-0001-0001-000000000001",
+      "applyUrl": "https://jobs.ashbyhq.com/orbit/a1b2c3d4-0001-0001-0001-000000000001/application",
+      "compensation": { "compensationTierSummary": "$60K – $75K" },
+      "secondaryLocations": []
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000002",
+      "title": "Head of Sales",
+      "location": "Remote (US)",
+      "isRemote": true,
+      "publishedDate": "2026-09-05T12:00:00.000Z",
+      "employmentType": "FullTime",
+      "jobUrl": "https://jobs.ashbyhq.com/orbit/a1b2c3d4-0001-0001-0001-000000000002",
+      "compensation": { "compensationTierSummary": null },
+      "secondaryLocations": []
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000003",
+      "title": "Inside Sales Representative",
+      "location": null,
+      "isRemote": true,
+      "publishedDate": "2026-09-12T08:30:00.000Z",
+      "employmentType": "FullTime",
+      "jobUrl": "https://jobs.ashbyhq.com/orbit/a1b2c3d4-0001-0001-0001-000000000003",
+      "compensation": null,
+      "secondaryLocations": [{ "location": "Remote (EU)" }]
+    }
+  ]
+}
