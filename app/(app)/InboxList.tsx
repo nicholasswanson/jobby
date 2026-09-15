@@ -108,20 +108,29 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
     <>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs text-zinc-400">{visible.length} to review</p>
-        <label className="flex items-center gap-1 text-xs text-zinc-500">
-          Posted
-          <select
-            value={dateFilter}
-            onChange={(e) => setPosted(e.target.value as typeof dateFilter)}
-            className="cursor-pointer border-0 bg-transparent p-0 text-xs text-zinc-500 focus:outline-none"
-          >
-            {DATE_FILTERS.map((f) => (
-              <option key={f.key} value={f.key}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex items-center gap-1 text-xs text-zinc-500">
+          <span>Posted</span>
+          {/* Plain text label + chevron; invisible native select sits on top so the
+              control stays as tight as the label instead of the widest option. */}
+          <span className="relative inline-flex cursor-pointer items-center gap-1 font-medium text-zinc-600 dark:text-zinc-300">
+            {DATE_FILTERS.find((f) => f.key === dateFilter)?.label}
+            <svg viewBox="0 0 12 12" className="h-3 w-3 text-zinc-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M3 4.5 6 7.5 9 4.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <select
+              aria-label="Posted date range"
+              value={dateFilter}
+              onChange={(e) => setPosted(e.target.value as typeof dateFilter)}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            >
+              {DATE_FILTERS.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </span>
+        </div>
       </div>
 
       {visible.length === 0 ? (
