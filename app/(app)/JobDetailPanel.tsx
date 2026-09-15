@@ -65,11 +65,13 @@ export default function JobDetailPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, companySparse])
 
-  // Offset the panel below the sticky header so it doesn't cover the nav.
-  const [headerH, setHeaderH] = useState(0)
+  // Desktop: sit below the sticky header (don't cover the nav). Mobile: full-screen.
+  const [panelTop, setPanelTop] = useState(0)
   useEffect(() => {
-    const measure = () =>
-      setHeaderH(document.querySelector('header')?.getBoundingClientRect().height ?? 0)
+    const measure = () => {
+      const h = document.querySelector('header')?.getBoundingClientRect().height ?? 0
+      setPanelTop(window.innerWidth >= 1024 ? h : 0)
+    }
     measure()
     window.addEventListener('resize', measure)
     return () => window.removeEventListener('resize', measure)
@@ -89,12 +91,12 @@ export default function JobDetailPanel({
         }`}
         aria-hidden={!open}
       />
-      {/* Drawer — sits below the sticky header; pushes content on lg. */}
+      {/* Drawer — mobile: full-screen takeover; desktop: 50vw beside the content. */}
       <aside
         role="dialog"
         aria-modal="true"
-        style={{ top: headerH, height: `calc(100% - ${headerH}px)` }}
-        className={`fixed right-0 z-30 flex w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform duration-200 lg:max-w-[27rem] dark:border-zinc-800 dark:bg-zinc-950 ${
+        style={{ top: panelTop, height: `calc(100% - ${panelTop}px)` }}
+        className={`fixed right-0 z-30 flex w-full flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform duration-200 lg:w-1/2 dark:border-zinc-800 dark:bg-zinc-950 ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

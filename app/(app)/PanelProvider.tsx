@@ -22,7 +22,7 @@ export default function PanelProvider({ children }: { children: React.ReactNode 
     <Ctx.Provider value={{ jobId, openJob: setJobId, close: () => setJobId(null) }}>
       <div
         className={`mx-auto w-full max-w-2xl flex-1 px-4 py-4 transition-[max-width,padding] duration-200 ${
-          open ? 'lg:max-w-6xl lg:pr-[27rem]' : ''
+          open ? 'lg:max-w-none lg:pr-[50vw]' : ''
         }`}
       >
         {children}
