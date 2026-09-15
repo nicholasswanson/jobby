@@ -1,0 +1,27 @@
+name: crawl
+
+on:
+  schedule:
+    # Fires every 30 minutes, 24/7. The /api/cron endpoint gates the overnight
+    # window (23:00–05:59 America/Los_Angeles) itself. GitHub's scheduler can
+    # drift a few minutes under load — acceptable for this use case.
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {} # manual "crawl now" button
+
+# Avoid overlapping runs if one is slow.
+concurrency:
+  group: crawl
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger crawl
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron"
