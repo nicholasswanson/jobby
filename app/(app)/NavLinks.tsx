@@ -13,7 +13,7 @@ const TABS = [
 export default function NavLinks() {
   const pathname = usePathname()
   return (
-    <nav className="mx-auto flex w-full max-w-2xl gap-1 px-4">
+    <nav className="flex w-full gap-1 px-6">
       {TABS.map((t) => {
         const active = pathname === t.href
         return (

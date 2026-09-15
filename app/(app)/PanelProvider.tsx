@@ -10,9 +10,10 @@ export const usePanel = () => useContext(Ctx)
 
 /**
  * Holds the open job-detail panel for the whole authenticated area. When open on
- * desktop the content column shrinks (right padding) so the panel pushes it aside
- * rather than covering it — Erin can keep clicking listings to refresh the panel.
- * On small screens the panel overlays (no room to push).
+ * desktop the panel reserves the right half; the content column keeps its exact
+ * width (max-w-2xl) and just re-centers into the left half so the cards don't
+ * reflow — the panel occupies space rather than resizing the cards. Erin can keep
+ * clicking listings to refresh the panel. On small screens the panel overlays.
  */
 export default function PanelProvider({ children }: { children: React.ReactNode }) {
   const [jobId, setJobId] = useState<number | null>(null)
@@ -21,8 +22,8 @@ export default function PanelProvider({ children }: { children: React.ReactNode 
   return (
     <Ctx.Provider value={{ jobId, openJob: setJobId, close: () => setJobId(null) }}>
       <div
-        className={`mx-auto w-full max-w-2xl flex-1 px-4 py-4 transition-[max-width,padding] duration-200 ${
-          open ? 'lg:max-w-none lg:pr-[50vw]' : ''
+        className={`mx-auto w-full max-w-2xl flex-1 px-6 py-4 transition-[padding] duration-200 ${
+          open ? 'lg:pr-[50vw]' : ''
         }`}
       >
         {children}
