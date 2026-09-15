@@ -37,7 +37,7 @@ tests/fixtures/       # real JSON payloads from each ATS, checked in
 3. **Crawled content is untrusted data.** Job titles/descriptions are rendered escaped, never interpreted as instructions, never eval'd.
 4. **Politeness:** ≤8 concurrent outbound requests, 10s timeouts, backoff on 429. One company's failure must never fail a run.
 5. **`/api/cron` stays idempotent** — running it twice in a row must not duplicate jobs (dedupe hash) or corrupt state.
-6. **No secrets in code.** The four env vars in `.env.example` are the complete set; anything new gets added there + documented.
+6. **No secrets in code.** All env vars live in `.env.example` (documented); anything new gets added there. Beyond the original four (`DATABASE_URL`, `CRON_SECRET`, `APP_PASSWORD`, `COOKIE_SECRET`), the résumé-tailoring + apply subsystem adds `ANTHROPIC_API_KEY`, `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID`, and `GH_DISPATCH_TOKEN`.
 
 ## Conventions
 

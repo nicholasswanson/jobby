@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { restoreJobToInbox, setCompanyActive } from '../actions'
+import ResumeTab, { type ProfileData, type ResumeMeta } from './ResumeTab'
 
 type Blocked = { id: number; name: string; atsType: string; slug: string | null }
 type Activity = {
@@ -23,6 +24,7 @@ type Filtered = {
 }
 
 const TABS = [
+  { key: 'resume', label: 'Résumé' },
   { key: 'blocked', label: 'Blocked' },
   { key: 'activity', label: 'Activity' },
   { key: 'filtered', label: 'Filtered out' },
@@ -35,15 +37,19 @@ const REASON_LABEL: Record<string, string> = {
 }
 
 export default function SettingsView({
+  resume,
+  profile,
   blocked,
   activity,
   filtered,
 }: {
+  resume: ResumeMeta
+  profile: ProfileData
   blocked: Blocked[]
   activity: Activity[]
   filtered: Filtered[]
 }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('blocked')
+  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('resume')
 
   return (
     <div>
@@ -66,6 +72,7 @@ export default function SettingsView({
         ))}
       </div>
 
+      {tab === 'resume' ? <ResumeTab resume={resume} profile={profile} /> : null}
       {tab === 'blocked' ? <BlockedTab items={blocked} /> : null}
       {tab === 'activity' ? <ActivityTab items={activity} /> : null}
       {tab === 'filtered' ? <FilteredTab items={filtered} /> : null}

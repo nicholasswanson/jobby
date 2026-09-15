@@ -1,13 +1,21 @@
 import { and, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import { db } from './client'
 import {
+  applicationProfile,
+  applications,
   companies,
+  jobTailoring,
   jobs,
+  resume,
   runs,
+  type Application,
+  type ApplicationProfile,
   type Company,
+  type JobTailoring,
   type NewJob,
   type NewRun,
   type Job,
+  type Resume,
 } from './schema'
 
 // ATS types that correspond to a per-company board we fetch directly.
@@ -377,4 +385,98 @@ export async function recordRun(input: NewRun) {
 
 export function getLatestRun() {
   return db.select().from(runs).orderBy(desc(runs.id)).limit(1)
+}
+
+// ---- Résumé + apply subsystem ----------------------------------------------
+
+export async function getResume(): Promise<Resume | null> {
+  const [row] = await db.select().from(resume).where(eq(resume.id, 1)).limit(1)
+  return row ?? null
+}
+
+export async function upsertResume(input: { fileName: string; mimeType: string; dataBase64: string }) {
+  await db
+    .insert(resume)
+    .values({ id: 1, ...input, uploadedAt: sql`now()` })
+    .onConflictDoUpdate({
+      target: resume.id,
+      set: { ...input, uploadedAt: sql`now()` },
+    })
+}
+
+export async function getProfile(): Promise<ApplicationProfile | null> {
+  const [row] = await db
+    .select()
+    .from(applicationProfile)
+    .where(eq(applicationProfile.id, 1))
+    .limit(1)
+  return row ?? null
+}
+
+export type ProfileInput = Partial<Omit<ApplicationProfile, 'id' | 'updatedAt'>>
+
+export async function upsertProfile(input: ProfileInput) {
+  await db
+    .insert(applicationProfile)
+    .values({ id: 1, ...input, updatedAt: sql`now()` })
+    .onConflictDoUpdate({
+      target: applicationProfile.id,
+      set: { ...input, updatedAt: sql`now()` },
+    })
+}
+
+export async function getTailoring(jobId: number): Promise<JobTailoring | null> {
+  const [row] = await db
+    .select()
+    .from(jobTailoring)
+    .where(eq(jobTailoring.jobId, jobId))
+    .limit(1)
+  return row ?? null
+}
+
+export async function upsertTailoring(
+  jobId: number,
+  input: Partial<Pick<JobTailoring, 'status' | 'tailoredMarkdown' | 'rationale' | 'model' | 'error'>>,
+) {
+  await db
+    .insert(jobTailoring)
+    .values({ jobId, ...input, updatedAt: sql`now()` })
+    .onConflictDoUpdate({
+      target: jobTailoring.jobId,
+      set: { ...input, updatedAt: sql`now()` },
+    })
+}
+
+export async function getApplication(jobId: number): Promise<Application | null> {
+  const [row] = await db
+    .select()
+    .from(applications)
+    .where(eq(applications.jobId, jobId))
+    .limit(1)
+  return row ?? null
+}
+
+export async function upsertApplication(
+  jobId: number,
+  input: Partial<
+    Pick<
+      Application,
+      | 'status'
+      | 'atsType'
+      | 'applyUrl'
+      | 'sessionUrl'
+      | 'screenshotBase64'
+      | 'log'
+      | 'error'
+      | 'autoSubmit'
+    >
+  >,
+) {
+  await db
+    .insert(applications)
+    .values({ jobId, ...input, updatedAt: sql`now()` })
+    .onConflictDoUpdate({
+      target: applications.jobId,
+      set: { ...input, updatedAt: sql`now()` },
+    })
 }
