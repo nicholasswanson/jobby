@@ -20,7 +20,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      # npm install (not ci): the lockfile is generated on macOS and prunes
+      # Linux-only optional deps, which npm ci rejects.
+      - run: npm install --no-audit --no-fund
       - name: Run apply agent
         env:
           JOB_ID: ${{ github.event.client_payload.jobId }}
