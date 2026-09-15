@@ -129,7 +129,10 @@ export default function JobDetailPanel({
                   {c.oneLiner ? (
                     <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{c.oneLiner}</p>
                   ) : enriching ? (
-                    <p className="mt-1 text-sm text-zinc-400">Researching company…</p>
+                    <p className="mt-1 flex items-center gap-2 text-sm text-zinc-400">
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-300 border-t-transparent dark:border-zinc-600" />
+                      Researching company…
+                    </p>
                   ) : null}
                   <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                     {c.teamSize ? <Row k="Team size" v={`${c.teamSize}`} /> : null}
