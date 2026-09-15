@@ -72,7 +72,7 @@ async function fetchOnce(url: string, timeoutMs: number): Promise<Response> {
   try {
     return await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'jobscout/1.0 (+https://github.com/nicholasswanson/jobby)' },
+      headers: { 'User-Agent': 'jobby/1.0 (+https://github.com/nicholasswanson/jobby)' },
     })
   } finally {
     clearTimeout(timer)

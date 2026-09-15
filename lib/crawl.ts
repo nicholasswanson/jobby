@@ -14,11 +14,13 @@ import {
   closeMissingJobs,
   getActiveBoardCompanies,
   getOrCreateAggregatorCompany,
+  markCompanyEnriched,
   recordCompanyFailure,
   recordRun,
   resetCompanyFailures,
   upsertJob,
 } from './db/queries'
+import { fetchSiteDescription } from './enrich'
 import type { NormalizedPosting } from './sources/types'
 import type { Company } from './db/schema'
 
@@ -54,6 +56,7 @@ async function ingestPostings(
       externalId: p.externalId,
       dedupeHash: dedupeHash(companyId, p.title, p.location),
       title: p.title,
+      description: p.description,
       location: p.location,
       remoteType: verdict.remoteType,
       salaryText: p.salaryText,
@@ -94,6 +97,7 @@ async function crawlAggregators(counters: Counters) {
           externalId: p.externalId,
           dedupeHash: dedupeHash(company.id, p.title, p.location),
           title: p.title,
+          description: p.description,
           location: p.location,
           remoteType: verdict.remoteType,
           salaryText: p.salaryText,
@@ -151,6 +155,17 @@ export async function runCrawl(opts: { now?: Date; force?: boolean } = {}): Prom
           await resetCompanyFailures(company.id)
           companiesOk += 1
           okCompanyIds.push(company.id)
+
+          // Enrich companies the YC seed didn't cover (own-site meta only).
+          // Isolated so enrichment never affects crawl success.
+          if (!company.enrichedAt && company.website) {
+            try {
+              const desc = await fetchSiteDescription(company.website)
+              await markCompanyEnriched(company.id, desc)
+            } catch {
+              /* enrichment is best-effort */
+            }
+          }
         } catch (err) {
           companiesFailed += 1
           await recordCompanyFailure(company.id)

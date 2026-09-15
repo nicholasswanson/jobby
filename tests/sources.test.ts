@@ -37,6 +37,9 @@ describe('normalizeGreenhouse', () => {
     expect(out[0].postedAt).toBeInstanceOf(Date)
     expect(out[0].postedAt?.getUTCFullYear()).toBe(2026)
   })
+  it('decodes HTML-escaped content into plain text', () => {
+    expect(out[0].description).toBe('Join our sales team and grow your career.')
+  })
 })
 
 describe('normalizeLever', () => {
@@ -83,6 +86,9 @@ describe('normalizeAshby', () => {
   it('joins secondary locations and falls back to isRemote', () => {
     expect(out[2].location).toBe('Remote (EU)')
     expect(out[2].salaryText).toBeNull()
+  })
+  it('strips HTML from the description', () => {
+    expect(out[0].description).toBe('Own customer success for our SMB segment.')
   })
 })
 

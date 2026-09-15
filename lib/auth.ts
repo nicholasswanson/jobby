@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-export const SESSION_COOKIE = 'jobscout_session'
+export const SESSION_COOKIE = 'jobby_session'
 
 /** Constant-time string comparison that never short-circuits on length. */
 export function safeEqual(a: string, b: string): boolean {

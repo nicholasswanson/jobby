@@ -1,4 +1,4 @@
-# Technical Plan — Jobscout
+# Technical Plan — Jobby
 
 A remote job-discovery dashboard for early-career account management / sales roles at AI startups. Crawls company ATS boards every 30 minutes (paused overnight PT), filters by keyword, and surfaces net-new roles in a triage inbox.
 

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jobscout",
+  title: "Jobby",
   description: "Net-new early-career remote AM / sales roles at AI startups.",
 };
 

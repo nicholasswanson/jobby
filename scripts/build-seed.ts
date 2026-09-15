@@ -15,6 +15,7 @@ import { writeFileSync } from 'node:fs'
 import pLimit from 'p-limit'
 import { buildBoardUrl, politeFetch, type BoardAtsType } from '../lib/sources'
 import { upsertSeedCompany } from '../lib/db/queries'
+import { truncate } from '../lib/text'
 
 type YcCompany = {
   name: string
@@ -25,6 +26,11 @@ type YcCompany = {
   status?: string | null
   isHiring?: boolean
   tags?: string[]
+  one_liner?: string | null
+  long_description?: string | null
+  team_size?: number | null
+  industry?: string | null
+  stage?: string | null
 }
 
 const YC_TAG_URLS = [
@@ -143,6 +149,13 @@ async function main() {
           slug: detected.slug,
           website: c.website ?? null,
           source: 'yc',
+          // Enrichment straight from the YC directory (public, no scraping).
+          oneLiner: c.one_liner ?? null,
+          description: c.long_description ? truncate(c.long_description, 1200) : null,
+          teamSize: c.team_size ?? null,
+          industry: c.industry ?? null,
+          batch: c.batch ?? null,
+          stage: c.stage ?? null,
         })
         if (isNew) inserted += 1
       }),

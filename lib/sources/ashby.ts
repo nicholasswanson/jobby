@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { descriptionSnippet } from '../text'
 import type { NormalizedPosting } from './types'
 
 // Ashby posting API: https://api.ashbyhq.com/posting-api/job-board/{slug}
@@ -11,6 +12,8 @@ const AshbyJob = z.object({
   publishedDate: z.string().nullish(),
   jobUrl: z.string().nullish(),
   applyUrl: z.string().nullish(),
+  descriptionPlain: z.string().nullish(),
+  descriptionHtml: z.string().nullish(),
   // Ashby's compensation block varies; a human-readable summary is exposed as
   // `compensationTierSummary` when the org publishes pay.
   compensation: z
@@ -45,6 +48,7 @@ export function normalizeAshby(raw: unknown): NormalizedPosting[] {
     return {
       externalId: j.id,
       title: j.title,
+      description: descriptionSnippet(j.descriptionPlain ?? j.descriptionHtml),
       location: pickLocation(j),
       salaryText: j.compensation?.compensationTierSummary ?? null,
       url,

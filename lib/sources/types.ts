@@ -5,6 +5,7 @@ export type NormalizedPosting = {
   // dedupe is by hash of company + title + location.
   externalId: string | null
   title: string
+  description: string | null // plain-text snippet (HTML stripped at the boundary)
   location: string | null
   salaryText: string | null
   url: string

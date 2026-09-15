@@ -1,3 +1,4 @@
+import { descriptionSnippet } from '../text'
 import type { NormalizedPosting } from './types'
 
 // We Work Remotely sales RSS feed. WWR gives an RSS/XML document, not JSON.
@@ -49,6 +50,7 @@ export function normalizeWwr(rawXml: string): NormalizedPosting[] {
     postings.push({
       externalId: tag(item, 'guid') ?? link,
       title,
+      description: descriptionSnippet(tag(item, 'description')),
       location: region?.trim() ? region.trim() : null,
       salaryText: null, // WWR does not expose structured salary in its feed
       url: link,

@@ -4,6 +4,7 @@
     {
       "id": "a1b2c3d4-0001-0001-0001-000000000001",
       "title": "Customer Success Associate",
+      "descriptionHtml": "<p>Own customer success for our <em>SMB</em> segment.</p>",
       "location": "Remote",
       "isRemote": true,
       "publishedDate": "2026-09-08T18:00:00.000Z",

@@ -22,6 +22,15 @@ export const companies = pgTable(
     source: text('source'), // 'yc' | 'dataset' | 'manual'
     active: boolean('active').notNull().default(true), // user can mute a company
     consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    // Enrichment (from the YC directory at seed time, or the company's own site
+    // meta at crawl time). No LinkedIn/Indeed/Glassdoor (AGENTS.md hard rule #1).
+    oneLiner: text('one_liner'),
+    description: text('description'),
+    teamSize: integer('team_size'),
+    industry: text('industry'),
+    batch: text('batch'),
+    stage: text('stage'),
+    enrichedAt: timestamp('enriched_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique('companies_ats_slug_unq').on(t.atsType, t.slug)],
@@ -35,6 +44,7 @@ export const jobs = pgTable('jobs', {
   externalId: text('external_id'), // ATS's own job id when available
   dedupeHash: text('dedupe_hash').notNull().unique(), // sha256(companyId|title|location)
   title: text('title').notNull(),
+  description: text('description'), // plain-text snippet (untrusted; rendered escaped)
   location: text('location'),
   remoteType: text('remote_type'), // 'remote' | 'remote_us' | 'remote_restricted'
   salaryText: text('salary_text'),

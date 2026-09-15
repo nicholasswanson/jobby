@@ -17,7 +17,7 @@ export default function LoginPage({
         className="w-full max-w-sm space-y-4 rounded-2xl border border-zinc-200 p-6 shadow-sm dark:border-zinc-800"
       >
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Jobscout</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Jobby</h1>
           <p className="mt-1 text-sm text-zinc-500">Enter the shared password to continue.</p>
         </div>
 

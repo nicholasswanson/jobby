@@ -1,4 +1,4 @@
-# Implementation Plan — Jobscout
+# Implementation Plan — Jobby
 
 Build order is chosen so real data exists before any UI is written, and the riskiest unknown (ATS slug-probe hit rate) is validated in Phase 2, not discovered in Phase 6.
 

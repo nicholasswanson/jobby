@@ -9,16 +9,21 @@ export default async function InboxPage() {
   const rows = await getInbox()
   const now = new Date()
 
-  const items: InboxItem[] = rows.map((r) => ({
-    id: r.id,
-    companyName: r.companyName,
-    title: r.title,
-    location: r.location,
-    remoteType: (r.remoteType as RemoteType | null) ?? null,
-    salaryText: r.salaryText,
-    url: r.url,
-    postedLabel: relativeDate(r.postedAt ?? r.firstSeen, now),
-  }))
+  const items: InboxItem[] = rows.map((r) => {
+    const effective = r.postedAt ?? r.firstSeen
+    return {
+      id: r.id,
+      companyName: r.companyName,
+      title: r.title,
+      snippet: r.snippet,
+      location: r.location,
+      remoteType: (r.remoteType as RemoteType | null) ?? null,
+      salaryText: r.salaryText,
+      url: r.url,
+      postedLabel: relativeDate(effective, now),
+      postedAtMs: effective ? new Date(effective).getTime() : null,
+    }
+  })
 
   return <InboxList items={items} />
 }

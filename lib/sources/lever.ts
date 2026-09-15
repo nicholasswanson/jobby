@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { descriptionSnippet } from '../text'
 import type { NormalizedPosting } from './types'
 
 // Lever postings API: https://api.lever.co/v0/postings/{slug}?mode=json
@@ -8,6 +9,8 @@ const LeverPosting = z.object({
   text: z.string(), // the job title
   hostedUrl: z.string(),
   applyUrl: z.string().nullish(),
+  descriptionPlain: z.string().nullish(),
+  description: z.string().nullish(), // HTML fallback
   createdAt: z.number().nullish(), // epoch milliseconds
   categories: z
     .object({
@@ -55,6 +58,7 @@ export function normalizeLever(raw: unknown): NormalizedPosting[] {
   return postings.map((p) => ({
     externalId: p.id,
     title: p.text,
+    description: descriptionSnippet(p.descriptionPlain ?? p.description),
     location: pickLocation(p.categories),
     salaryText: formatSalary(p.salaryRange),
     url: p.hostedUrl,

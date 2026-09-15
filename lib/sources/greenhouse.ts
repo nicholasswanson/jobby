@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { descriptionSnippet } from '../text'
 import type { NormalizedPosting } from './types'
 
 // Greenhouse boards API: https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true
@@ -8,6 +9,7 @@ const GreenhouseJob = z.object({
   title: z.string(),
   absolute_url: z.string(),
   updated_at: z.string().nullish(),
+  content: z.string().nullish(), // HTML-encoded job description
   location: z.object({ name: z.string() }).nullish(),
   metadata: z
     .array(z.object({ name: z.string(), value: z.unknown() }))
@@ -37,6 +39,7 @@ export function normalizeGreenhouse(raw: unknown): NormalizedPosting[] {
   return jobs.map((j) => ({
     externalId: String(j.id),
     title: j.title,
+    description: descriptionSnippet(j.content),
     location: j.location?.name ?? null,
     salaryText: pickSalary(j.metadata),
     url: j.absolute_url,

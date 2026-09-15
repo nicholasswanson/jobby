@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { descriptionSnippet } from '../text'
 import type { NormalizedPosting } from './types'
 
 // Remotive public API: https://remotive.com/api/remote-jobs?category=sales
@@ -11,6 +12,7 @@ const RemotiveJob = z.object({
   company_name: z.string(),
   candidate_required_location: z.string().nullish(),
   salary: z.string().nullish(),
+  description: z.string().nullish(), // HTML
   publication_date: z.string().nullish(),
 })
 
@@ -21,6 +23,7 @@ export function normalizeRemotive(raw: unknown): NormalizedPosting[] {
   return jobs.map((j) => ({
     externalId: String(j.id),
     title: j.title,
+    description: descriptionSnippet(j.description),
     // Remotive is remote-only; if no restriction is given, treat as fully remote.
     location: j.candidate_required_location?.trim()
       ? j.candidate_required_location.trim()

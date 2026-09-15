@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm'
 import { isValidSession, SESSION_COOKIE } from '@/lib/auth'
 import { db } from '@/lib/db/client'
 import { companies } from '@/lib/db/schema'
-import { setJobStatus } from '@/lib/db/queries'
+import { getJobDetail, setJobStatus } from '@/lib/db/queries'
 
 async function assertSession() {
   const session = (await cookies()).get(SESSION_COOKIE)?.value
@@ -19,6 +19,11 @@ export async function triageJob(jobId: number, status: 'interested' | 'not_a_fit
   await setJobStatus(jobId, status)
   revalidatePath('/')
   revalidatePath('/interested')
+}
+
+export async function loadJobDetail(jobId: number) {
+  await assertSession()
+  return getJobDetail(jobId)
 }
 
 export async function setCompanyActive(companyId: number, active: boolean) {

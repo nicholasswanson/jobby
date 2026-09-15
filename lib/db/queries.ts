@@ -49,6 +49,20 @@ export function getCompaniesWithJobCounts() {
 
 const FAILURE_DEACTIVATE_THRESHOLD = 5
 
+/**
+ * Mark a company enriched (stamps enriched_at so we don't refetch every crawl);
+ * fills description only if we found one and it's currently empty.
+ */
+export async function markCompanyEnriched(companyId: number, description: string | null) {
+  await db
+    .update(companies)
+    .set({
+      description: sql`coalesce(${companies.description}, ${description ?? null})`,
+      enrichedAt: sql`now()`,
+    })
+    .where(eq(companies.id, companyId))
+}
+
 export async function resetCompanyFailures(companyId: number) {
   await db
     .update(companies)
@@ -92,28 +106,60 @@ export async function getOrCreateAggregatorCompany(
   return existing
 }
 
-export async function upsertSeedCompany(input: {
+export type SeedCompanyInput = {
   name: string
   atsType: string
   slug: string
   website?: string | null
   source?: string | null
-}): Promise<{ isNew: boolean }> {
-  const inserted = await db
+  oneLiner?: string | null
+  description?: string | null
+  teamSize?: number | null
+  industry?: string | null
+  batch?: string | null
+  stage?: string | null
+}
+
+export async function upsertSeedCompany(input: SeedCompanyInput): Promise<{ isNew: boolean }> {
+  const enrichedAt = sql`now()`
+  const rows = await db
     .insert(companies)
-    .values(input)
-    .onConflictDoNothing({ target: [companies.atsType, companies.slug] })
-    .returning()
-  return { isNew: inserted.length > 0 }
+    .values({ ...input, enrichedAt })
+    .onConflictDoUpdate({
+      target: [companies.atsType, companies.slug],
+      // Refresh identity + enrichment on re-seed; never touch `active`
+      // (user mute) or `consecutive_failures`.
+      set: {
+        name: input.name,
+        website: input.website ?? null,
+        oneLiner: input.oneLiner ?? null,
+        description: input.description ?? null,
+        teamSize: input.teamSize ?? null,
+        industry: input.industry ?? null,
+        batch: input.batch ?? null,
+        stage: input.stage ?? null,
+        enrichedAt,
+      },
+    })
+    // xmax = 0 ⇒ this row was inserted (not updated) by the upsert.
+    .returning({ inserted: sql<boolean>`(xmax = 0)` })
+  return { isNew: rows[0]?.inserted ?? false }
 }
 
 // ---- Inbox / pipeline reads -------------------------------------------------
+
+// Cards show a short snippet (clamped to 4 lines); the detail panel loads the
+// full text via getJobDetail. Keeps the inbox payload small.
+const CARD_SNIPPET = sql<string | null>`left(${jobs.description}, 320)`
+// Hard cutoff: never show jobs whose effective posted date is >90 days old.
+const WITHIN_90_DAYS = sql`coalesce(${jobs.postedAt}, ${jobs.firstSeen}) >= now() - interval '90 days'`
 
 export function getInbox() {
   return db
     .select({
       id: jobs.id,
       title: jobs.title,
+      snippet: CARD_SNIPPET,
       location: jobs.location,
       remoteType: jobs.remoteType,
       salaryText: jobs.salaryText,
@@ -125,8 +171,42 @@ export function getInbox() {
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
-    .where(eq(jobs.status, 'inbox'))
+    .where(and(eq(jobs.status, 'inbox'), WITHIN_90_DAYS))
     .orderBy(desc(jobs.firstSeen))
+}
+
+/** Full job + company enrichment for the detail side panel. */
+export async function getJobDetail(jobId: number) {
+  const [row] = await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      description: jobs.description,
+      location: jobs.location,
+      remoteType: jobs.remoteType,
+      salaryText: jobs.salaryText,
+      url: jobs.url,
+      postedAt: jobs.postedAt,
+      firstSeen: jobs.firstSeen,
+      status: jobs.status,
+      company: {
+        id: companies.id,
+        name: companies.name,
+        website: companies.website,
+        atsType: companies.atsType,
+        oneLiner: companies.oneLiner,
+        description: companies.description,
+        teamSize: companies.teamSize,
+        industry: companies.industry,
+        batch: companies.batch,
+        stage: companies.stage,
+      },
+    })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(eq(jobs.id, jobId))
+    .limit(1)
+  return row ?? null
 }
 
 export function getInterested() {
@@ -134,6 +214,7 @@ export function getInterested() {
     .select({
       id: jobs.id,
       title: jobs.title,
+      snippet: CARD_SNIPPET,
       location: jobs.location,
       remoteType: jobs.remoteType,
       salaryText: jobs.salaryText,
@@ -180,9 +261,11 @@ export async function upsertJob(input: NewJob): Promise<UpsertResult> {
     return { job: inserted[0], isNew: true }
   }
 
+  // Existing posting: bump last_seen and refresh mutable content (description /
+  // salary can appear or change after first sight; backfills older rows too).
   const updated = await db
     .update(jobs)
-    .set({ lastSeen: sql`now()` })
+    .set({ lastSeen: sql`now()`, description: input.description, salaryText: input.salaryText })
     .where(eq(jobs.dedupeHash, input.dedupeHash))
     .returning()
 

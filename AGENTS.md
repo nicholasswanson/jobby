@@ -1,4 +1,4 @@
-# AGENTS.md — Jobscout
+# AGENTS.md — Jobby
 
 Agent briefing for this repo. Read `technical_plan.md` (architecture/specs) and `implementation_plan.md` (task sequence) before making changes. When those docs and the code disagree, flag it — don't silently pick one.
 

@@ -1,4 +1,4 @@
-# Jobscout
+# Jobby
 
 A two-user job-discovery dashboard. Crawls AI-startup ATS boards every 30 minutes for
 early-career remote account management / sales roles and surfaces net-new postings in a
