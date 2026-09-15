@@ -164,7 +164,21 @@ const CARD_SNIPPET = sql<string | null>`left(${jobs.description}, 800)`
 // Hard cutoff: never show jobs whose effective posted date is >90 days old.
 const WITHIN_90_DAYS = sql`coalesce(${jobs.postedAt}, ${jobs.firstSeen}) >= now() - interval '90 days'`
 
-export function getInbox() {
+// Role feeds. 'core' = the AM+sales combo (Erin's default); a specific category;
+// or 'all'. Maps to the set of category keys a job must overlap.
+export const INBOX_FEEDS = ['core', 'account_management', 'sales', 'engineering', 'all'] as const
+export type InboxFeed = (typeof INBOX_FEEDS)[number]
+
+function feedCategories(feed: InboxFeed): string[] | null {
+  if (feed === 'all') return null
+  if (feed === 'core') return ['account_management', 'sales']
+  return [feed]
+}
+
+export function getInbox(feed: InboxFeed = 'core') {
+  const conds = [eq(jobs.status, 'inbox'), WITHIN_90_DAYS]
+  const cats = feedCategories(feed)
+  if (cats) conds.push(sql`${jobs.categories} && ${cats}::text[]`)
   return db
     .select({
       id: jobs.id,
@@ -182,7 +196,7 @@ export function getInbox() {
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
-    .where(and(eq(jobs.status, 'inbox'), WITHIN_90_DAYS))
+    .where(and(...conds))
     .orderBy(desc(jobs.firstSeen))
 }
 
@@ -345,14 +359,42 @@ export async function upsertJob(input: NewJob): Promise<UpsertResult> {
   }
 
   // Existing posting: bump last_seen and refresh mutable content (description /
-  // salary can appear or change after first sight; backfills older rows too).
+  // salary / categories can change after first sight; backfills older rows too).
   const updated = await db
     .update(jobs)
-    .set({ lastSeen: sql`now()`, description: input.description, salaryText: input.salaryText })
+    .set({
+      lastSeen: sql`now()`,
+      description: input.description,
+      salaryText: input.salaryText,
+      categories: input.categories,
+    })
     .where(eq(jobs.dedupeHash, input.dedupeHash))
     .returning()
 
   return { job: updated[0], isNew: false }
+}
+
+/**
+ * Batch upsert many jobs in a single round-trip (used per company by the crawl).
+ * Returns {id, isNew} in input order. Refreshes description/salary/categories on
+ * conflict; never touches `status` (preserves triage). Caller must pre-dedupe by
+ * dedupe_hash (Postgres rejects a hash appearing twice in one ON CONFLICT batch).
+ */
+export async function upsertJobs(rows: NewJob[]): Promise<{ id: number; isNew: boolean }[]> {
+  if (rows.length === 0) return []
+  return db
+    .insert(jobs)
+    .values(rows)
+    .onConflictDoUpdate({
+      target: jobs.dedupeHash,
+      set: {
+        lastSeen: sql`now()`,
+        description: sql`excluded.description`,
+        salaryText: sql`excluded.salary_text`,
+        categories: sql`excluded.categories`,
+      },
+    })
+    .returning({ id: jobs.id, isNew: sql<boolean>`(xmax = 0)` })
 }
 
 /**

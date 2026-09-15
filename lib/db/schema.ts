@@ -46,6 +46,7 @@ export const jobs = pgTable('jobs', {
   dedupeHash: text('dedupe_hash').notNull().unique(), // sha256(companyId|title|location)
   title: text('title').notNull(),
   description: text('description'), // plain-text snippet (untrusted; rendered escaped)
+  categories: text('categories').array(), // role feeds: account_management | sales | engineering
   location: text('location'),
   remoteType: text('remote_type'), // 'remote' | 'remote_us' | 'remote_restricted'
   salaryText: text('salary_text'),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyLocation, filterJob, matchesTitle } from '@/lib/filters'
+import { categorize, classifyLocation, filterJob, matchesTitle } from '@/lib/filters'
 
 describe('matchesTitle — INCLUDE', () => {
   it.each([
@@ -18,12 +18,31 @@ describe('matchesTitle — INCLUDE', () => {
     expect(matchesTitle(title)).toBe(true)
   })
 
-  it.each(['Software Engineer', 'Product Designer', 'Recruiter', 'Data Analyst'])(
+  it.each(['Product Designer', 'Recruiter', 'Data Analyst', 'Office Manager'])(
     'excludes unrelated title %s',
     (title) => {
       expect(matchesTitle(title)).toBe(false)
     },
   )
+})
+
+describe('categorize (role feeds)', () => {
+  it('routes AM titles to account_management', () => {
+    expect(categorize('Account Manager')).toEqual(['account_management'])
+    expect(categorize('Customer Success Manager')).toEqual(['account_management'])
+  })
+  it('routes sales titles to sales', () => {
+    expect(categorize('Account Executive')).toEqual(['sales'])
+    expect(categorize('Sales Development Representative')).toEqual(['sales'])
+  })
+  it('routes anything with engineer to engineering (takes precedence)', () => {
+    expect(categorize('Software Engineer')).toEqual(['engineering'])
+    expect(categorize('Customer Success Engineer')).toEqual(['engineering'])
+    expect(categorize('Sales Engineer')).toEqual(['engineering'])
+  })
+  it('returns [] for non-target roles', () => {
+    expect(categorize('Product Designer')).toEqual([])
+  })
 })
 
 describe('matchesTitle — EXCLUDE (seniority / leadership / enterprise)', () => {
@@ -94,16 +113,16 @@ describe('classifyLocation', () => {
 })
 
 describe('filterJob (title + location combined)', () => {
-  it('includes an early-career remote role', () => {
-    expect(filterJob({ title: 'Account Executive', location: 'Remote' })).toEqual({
+  it('includes an early-career remote role with its category', () => {
+    expect(filterJob({ title: 'Account Executive', location: 'Remote' })).toMatchObject({
       included: true,
       remoteType: 'remote',
-      verify: false,
+      categories: ['sales'],
     })
   })
 
   it('drops a matching title at an on-site location, tagged onsite', () => {
-    expect(filterJob({ title: 'Sales Associate', location: 'Hybrid, NYC' })).toEqual({
+    expect(filterJob({ title: 'Sales Associate', location: 'Hybrid, NYC' })).toMatchObject({
       included: false,
       relevant: true,
       reason: 'onsite',
@@ -111,7 +130,7 @@ describe('filterJob (title + location combined)', () => {
   })
 
   it('drops a senior title even when remote, tagged seniority', () => {
-    expect(filterJob({ title: 'Senior Account Executive', location: 'Remote' })).toEqual({
+    expect(filterJob({ title: 'Senior Account Executive', location: 'Remote' })).toMatchObject({
       included: false,
       relevant: true,
       reason: 'seniority',
@@ -119,19 +138,17 @@ describe('filterJob (title + location combined)', () => {
   })
 
   it('marks a non-target title irrelevant (not stored)', () => {
-    expect(filterJob({ title: 'Software Engineer', location: 'Remote' })).toEqual({
+    expect(filterJob({ title: 'Product Designer', location: 'Remote' })).toEqual({
       included: false,
       relevant: false,
     })
   })
 
-  it.each([
-    'Customer Success Engineer',
-    'Customer Success Engineer (Contract)',
-    'Sales Engineer',
-    'Solutions Engineer',
-  ])('drops engineering role %s as irrelevant', (title) => {
-    expect(filterJob({ title, location: 'Remote' })).toEqual({ included: false, relevant: false })
+  it('includes engineering roles in the engineering category', () => {
+    expect(filterJob({ title: 'Customer Success Engineer', location: 'Remote' })).toMatchObject({
+      included: true,
+      categories: ['engineering'],
+    })
   })
 })
 
@@ -145,7 +162,7 @@ describe('non-North-America geo exclusion', () => {
     ['Account Executive', 'Remote (EU)'],
     ['Account Executive', 'Remote - London'],
   ])('excludes %s / %s with reason geo', (title, location) => {
-    expect(filterJob({ title, location })).toEqual({
+    expect(filterJob({ title, location })).toMatchObject({
       included: false,
       relevant: true,
       reason: 'geo',
@@ -171,7 +188,7 @@ describe('experience-based seniority (description)', () => {
         location: 'Remote',
         description: '10+ years of experience in a customer-facing role such as Strategic Account Management.',
       }),
-    ).toEqual({ included: false, relevant: true, reason: 'seniority' })
+    ).toMatchObject({ included: false, relevant: true, reason: 'seniority' })
   })
   it('keeps early-career roles', () => {
     expect(

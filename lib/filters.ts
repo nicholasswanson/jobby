@@ -4,24 +4,52 @@
 //
 // Spec: technical_plan.md § Filters.
 
-// --- Title matching ----------------------------------------------------------
+// --- Role categories ---------------------------------------------------------
+// Each feed is a role category with its own title patterns. A title can match
+// several — EXCEPT engineering, which takes precedence (a title containing
+// "engineer" is a tech role, e.g. "Customer Success Engineer" → engineering,
+// not account_management). Cross-cutting gates (seniority, experience, geo,
+// location) below apply to every category.
 
-// A title must match at least one INCLUDE pattern (early-career AM/sales roles)...
-export const INCLUDE =
-  /account manager|account executive|sales development|(^|\W)sdr(\W|$)|(^|\W)bdr(\W|$)|business development rep|customer success|sales associate|inside sales|account associate/i
+export type RoleCategory = 'account_management' | 'sales' | 'engineering'
 
-// ...and match NONE of the EXCLUDE patterns (senior / leadership / enterprise).
-//
-// NOTE (deviation from technical_plan.md, flagged per hard rule): the plan's
-// EXCLUDE listed `enterprise account`, which only catches "Enterprise Account
-// Executive" — not "Account Manager, Enterprise", which AGENTS.md and
-// implementation_plan.md both require to be excluded. Broadened to `\benterprise\b`
-// so both orderings are excluded. Covered by tests.
+const ENGINEERING_PATTERN =
+  /\bengineer|\bengineering\b|\bdeveloper\b|\bsoftware\b|\bprogrammer\b|\bswe\b|data scientist|machine learning|full[-\s]?stack|back[-\s]?end|front[-\s]?end|\bdevops\b|\bsre\b/i
+
+export const ROLE_CATEGORIES: { key: RoleCategory; label: string; pattern: RegExp }[] = [
+  {
+    key: 'account_management',
+    label: 'Account Management',
+    pattern:
+      /account manager|customer success|\bcsm\b|account associate|client partner|client success|relationship manager|implementation manager|onboarding manager|partner manager/i,
+  },
+  {
+    key: 'sales',
+    label: 'Sales',
+    pattern:
+      /account executive|\bae\b|sales development|(^|\W)sdr(\W|$)|(^|\W)bdr(\W|$)|business development|inside sales|sales associate|sales representative|sales rep\b/i,
+  },
+  { key: 'engineering', label: 'Engineering', pattern: ENGINEERING_PATTERN },
+]
+
+/** Role categories a title belongs to. Engineering wins outright when present. */
+export function categorize(title: string): RoleCategory[] {
+  if (ENGINEERING_PATTERN.test(title)) return ['engineering']
+  return ROLE_CATEGORIES.filter((c) => c.key !== 'engineering' && c.pattern.test(title)).map(
+    (c) => c.key,
+  )
+}
+
+// EXCLUDE (senior / leadership / enterprise) — applies to every category. Note
+// (deviation, flagged per hard rule): broadened the plan's `enterprise account`
+// to `\benterprise\b` so both "Enterprise Account Executive" and "Account
+// Manager, Enterprise" are excluded.
 export const EXCLUDE =
   /senior|\bsr\.?\b|staff|principal|director|vp\b|vice president|head of|lead\b|manager,\s*sales|\benterprise\b/i
 
+/** Back-compat: does a title match any category and pass the seniority gate. */
 export function matchesTitle(title: string): boolean {
-  return INCLUDE.test(title) && !EXCLUDE.test(title)
+  return categorize(title).length > 0 && !EXCLUDE.test(title)
 }
 
 // Clear non-North-America geo indicators. When one of these appears in a title
@@ -114,32 +142,27 @@ export type FilterInput = { title: string; location?: string | null; description
 export type FilterReason = 'seniority' | 'geo' | 'onsite'
 
 export type FilterResult =
-  // Not a target role at all — not worth storing.
+  // Not a target role in any category — not worth storing.
   | { included: false; relevant: false }
-  // A target role (title matched INCLUDE) but excluded by a later gate.
-  | { included: false; relevant: true; reason: FilterReason }
-  | { included: true; remoteType: RemoteType; verify: boolean }
+  // A target role excluded by a cross-cutting gate (kept for the review list).
+  | { included: false; relevant: true; reason: FilterReason; categories: RoleCategory[] }
+  | { included: true; remoteType: RemoteType; verify: boolean; categories: RoleCategory[] }
 
 /**
- * Staged filter. Order matters: first decide whether the title is even a target
- * role, then apply seniority, geo, and location gates. Relevant-but-excluded
- * jobs carry a reason so they can be reviewed later.
+ * Staged filter. First categorize the role; a non-matching title is irrelevant.
+ * Then apply the cross-cutting gates (seniority, experience, geo, location) that
+ * every category shares. The matched categories ride along for feed tagging.
  */
-// Engineering / technical roles that can slip through INCLUDE (e.g. "Customer
-// Success Engineer", "Sales Engineer") — not target AM/sales roles, so drop them
-// entirely (not even worth surfacing in the filtered-review list).
-export const ENGINEERING =
-  /\bengineer|\bengineering\b|\bdeveloper\b|\bsoftware\b|\bprogrammer\b|\bswe\b|data scientist|machine learning engineer/i
-
 export function filterJob({ title, location, description }: FilterInput): FilterResult {
-  if (!INCLUDE.test(title)) return { included: false, relevant: false }
-  if (ENGINEERING.test(title)) return { included: false, relevant: false }
-  if (EXCLUDE.test(title)) return { included: false, relevant: true, reason: 'seniority' }
+  const categories = categorize(title)
+  if (categories.length === 0) return { included: false, relevant: false }
+  if (EXCLUDE.test(title))
+    return { included: false, relevant: true, reason: 'seniority', categories }
   if (maxExperienceYears(description) >= SENIOR_YEARS)
-    return { included: false, relevant: true, reason: 'seniority' }
+    return { included: false, relevant: true, reason: 'seniority', categories }
   if (isNonNorthAmerica(title, location))
-    return { included: false, relevant: true, reason: 'geo' }
+    return { included: false, relevant: true, reason: 'geo', categories }
   const loc = classifyLocation(location)
-  if (!loc.keep) return { included: false, relevant: true, reason: 'onsite' }
-  return { included: true, remoteType: loc.remoteType, verify: loc.verify }
+  if (!loc.keep) return { included: false, relevant: true, reason: 'onsite', categories }
+  return { included: true, remoteType: loc.remoteType, verify: loc.verify, categories }
 }

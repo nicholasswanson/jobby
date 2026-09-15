@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import type { RemoteType } from '@/lib/filters'
+import type { InboxFeed } from '@/lib/db/queries'
 import { hideCompanyFromInbox, triageJob } from './actions'
 import { usePanel } from './PanelProvider'
 
@@ -30,7 +32,16 @@ const DATE_FILTERS = [
   { key: '30d', label: 'Past 30 days', days: 30 },
 ] as const
 
-export default function InboxList({ items }: { items: InboxItem[] }) {
+const FEEDS: { key: InboxFeed; label: string }[] = [
+  { key: 'core', label: 'Sales & AM' },
+  { key: 'account_management', label: 'Account Management' },
+  { key: 'sales', label: 'Sales' },
+  { key: 'engineering', label: 'Engineering' },
+  { key: 'all', label: 'All roles' },
+]
+
+export default function InboxList({ items, feed }: { items: InboxItem[]; feed: InboxFeed }) {
+  const router = useRouter()
   const [optimisticItems, removeOptimistic] = useOptimistic(
     items,
     (state, action: RemoveAction) =>
@@ -95,7 +106,23 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
   return (
     <>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-zinc-400">{visible.length} to review</p>
+        <label className="flex items-center gap-1 text-xs text-zinc-500">
+          <select
+            value={feed}
+            onChange={(e) => {
+              const v = e.target.value as InboxFeed
+              router.push(v === 'core' ? '/' : `/?feed=${v}`)
+            }}
+            className="cursor-pointer border-0 bg-transparent p-0 text-sm font-medium text-zinc-800 focus:outline-none dark:text-zinc-100"
+          >
+            {FEEDS.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-zinc-400">· {visible.length}</span>
+        </label>
         <label className="flex items-center gap-1 text-xs text-zinc-500">
           Posted
           <select

@@ -19,7 +19,9 @@ import {
   recordRun,
   resetCompanyFailures,
   upsertJob,
+  upsertJobs,
 } from './db/queries'
+import type { NewJob } from './db/schema'
 import { fetchSiteDescription } from './enrich'
 import type { NormalizedPosting } from './sources/types'
 import type { Company } from './db/schema'
@@ -37,23 +39,20 @@ export type CrawlResult = {
 
 type Counters = { jobsSeen: number; newJobs: number; filtered: number; seenJobIds: number[] }
 
-/**
- * Ingest one normalized posting for a known company.
- *  - target role, passes all gates  → stored as `inbox`
- *  - target role, excluded by a gate → stored as `filtered` (+ reason) for review
- *  - not a target role               → skipped entirely (not stored)
- */
-async function ingestOne(companyId: number, p: NormalizedPosting, counters: Counters) {
-  const verdict = filterJob({ title: p.title, location: p.location, description: p.description })
-  if (!verdict.included && !verdict.relevant) return // irrelevant role, don't store
-
+// Build a job row from a posting + its (non-irrelevant) verdict.
+function buildRow(
+  companyId: number,
+  p: NormalizedPosting,
+  verdict: Extract<ReturnType<typeof filterJob>, { relevant: true } | { included: true }>,
+): NewJob {
   const included = verdict.included
-  const { job, isNew } = await upsertJob({
+  return {
     companyId,
     externalId: p.externalId,
     dedupeHash: dedupeHash(companyId, p.title, p.location),
     title: p.title,
     description: p.description,
+    categories: verdict.categories,
     location: p.location,
     remoteType: included ? verdict.remoteType : null,
     salaryText: p.salaryText,
@@ -61,10 +60,22 @@ async function ingestOne(companyId: number, p: NormalizedPosting, counters: Coun
     postedAt: p.postedAt,
     status: included ? 'inbox' : 'filtered',
     filterReason: included ? null : verdict.reason,
-  })
+  }
+}
 
-  counters.seenJobIds.push(job.id) // seen this run (inbox or filtered) → not closed
-  if (included) {
+/**
+ * Ingest one posting for a known company (used by aggregators, which resolve a
+ * distinct company per posting so batching doesn't apply).
+ *  - target role, passes gates  → `inbox`
+ *  - target role, gated out      → `filtered` (+ reason) for review
+ *  - not a target role           → skipped
+ */
+async function ingestOne(companyId: number, p: NormalizedPosting, counters: Counters) {
+  const verdict = filterJob({ title: p.title, location: p.location, description: p.description })
+  if (!verdict.included && !verdict.relevant) return
+  const { job, isNew } = await upsertJob(buildRow(companyId, p, verdict))
+  counters.seenJobIds.push(job.id)
+  if (verdict.included) {
     counters.jobsSeen += 1
     if (isNew) counters.newJobs += 1
   } else if (isNew) {
@@ -72,8 +83,30 @@ async function ingestOne(companyId: number, p: NormalizedPosting, counters: Coun
   }
 }
 
+/** Board ingest: classify all postings, then upsert in a single batch per company. */
 async function ingestPostings(companyId: number, postings: NormalizedPosting[], counters: Counters) {
-  for (const p of postings) await ingestOne(companyId, p, counters)
+  const rows: NewJob[] = []
+  const includedFlags: boolean[] = []
+  const seenHashes = new Set<string>()
+  for (const p of postings) {
+    const verdict = filterJob({ title: p.title, location: p.location, description: p.description })
+    if (!verdict.included && !verdict.relevant) continue
+    const row = buildRow(companyId, p, verdict)
+    if (seenHashes.has(row.dedupeHash)) continue // ON CONFLICT can't hit a hash twice per batch
+    seenHashes.add(row.dedupeHash)
+    rows.push(row)
+    includedFlags.push(verdict.included)
+  }
+  const result = await upsertJobs(rows)
+  result.forEach((r, i) => {
+    counters.seenJobIds.push(r.id)
+    if (includedFlags[i]) {
+      counters.jobsSeen += 1
+      if (r.isNew) counters.newJobs += 1
+    } else if (r.isNew) {
+      counters.filtered += 1
+    }
+  })
 }
 
 async function crawlBoardCompany(company: Company, counters: Counters): Promise<boolean> {
