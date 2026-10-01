@@ -1,6 +1,7 @@
 import { getInterested } from '@/lib/db/queries'
 import { relativeDate } from '@/lib/format'
 import { getCurrentProfile } from '@/lib/profile'
+import { isPipelineStage } from '@/lib/pipeline'
 import type { RemoteType } from '@/lib/filters'
 import InterestedList, { type InterestedItem } from './InterestedList'
 
@@ -30,6 +31,11 @@ export default async function InterestedPage() {
     url: r.url,
     savedLabel: r.triagedAt ? relativeDate(r.triagedAt, now) : null,
     closedWhileInterested: r.closedWhileInterested,
+    stage: isPipelineStage(r.pipelineStage) ? r.pipelineStage : 'saved',
+    industry: r.industry,
+    teamSize: r.teamSize,
+    fundingStage: r.stage,
+    batch: r.batch,
   }))
 
   return <InterestedList items={items} />

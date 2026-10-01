@@ -61,7 +61,9 @@ jobs (
   first_seen    timestamptz DEFAULT now(),
   last_seen     timestamptz DEFAULT now(),
   status        text DEFAULT 'inbox',  -- 'inbox' | 'interested' | 'not_a_fit' | 'closed' | 'filtered'
-  triaged_at    timestamptz
+  triaged_at    timestamptz,
+  pipeline_stage text DEFAULT 'saved', -- once interested: saved | applied | phone_screen | interviewing | offer | inactive
+  stage_changed_at timestamptz
 )
 -- Multi-person (added post-v1): every per-job column above (status, categories,
 -- filter_reason, triage) is per person because the row itself is per person.
@@ -154,7 +156,10 @@ All patterns live in one file with a fixture-driven test suite (real JSON payloa
 ## Dashboard
 
 - `/` **Inbox** — cards newest-first: company, title, salary (if posted), remote badge, posted date, outbound link. Keyboard: `I` = interested, `X` = not a fit, `J/K` navigate. Mobile: swipe right/left. Optimistic updates via server actions.
-- `/interested` — pipeline list; placeholder actions column (future: draft outreach, mark applied).
+- `/interested` — pipeline grouped by stage (Saved → Applied → Phone screen → Interviewing → Offer; Inactive collapsed at the bottom) with a per-card stage picker (`lib/pipeline.ts`). The apply agent moves a job to Applied when it submits.
+- Job cards show company facts when known — `Industry · ~N people · Series A · YC W24` — from the YC seed or Claude web-search enrichment (`lib/ai/enrichCompany.ts`, which now also returns a funding `stage`). The inbox triggers enrichment in the background for visible companies with no profile (≤3 concurrent, via `/api/companies/:id/enrich`); `companies.ai_enriched_at` stops a company being re-searched within 7 days. `npm run enrich:backfill` does a one-off pass.
+- Job detail panel: description rendered as headings / bullet lists / paragraphs (`lib/description.ts`); the open job lives in the URL (`?job=`) via native `history.pushState` so Back closes the panel and the link is shareable.
+- Inbox swipe: green/red reveal while dragging, fly-out on commit, axis lock so vertical scrolling doesn't move cards, and a 5 s Undo toast after every triage (also the `Z` key).
 - `/companies` — seed list, per-company active toggle, failure indicators.
 - Health chip in the shell: "Last updated 14 min ago · 3 new" — the run time from the latest `runs` row; "N new" counts the active person's inbox rows first seen by that run.
 - **Person switcher** in the header (`Jobby › Erin › All`): picks whose search the whole app shows (inbox + feeds, interested, settings, résumé). Stored in a plain `jobby_profile` cookie; defaults to Erin. Deep link: `/?person=brodi` (any page) sets the cookie and redirects to the same URL without the param (`proxy.ts`). Both people share one login, one company list, and one crawl.

@@ -17,11 +17,13 @@ import {
   hideCompany,
   restoreToInbox,
   setJobStatus,
+  setPipelineStage as setPipelineStageQuery,
   upsertApplication,
   upsertTailoring,
 } from '@/lib/db/queries'
 import { generateTailoredResume } from '@/lib/ai/tailor'
 import { isProfileKey } from '@/lib/filters'
+import { isPipelineStage } from '@/lib/pipeline'
 import { getCurrentProfile, PROFILE_COOKIE, PROFILE_COOKIE_MAX_AGE } from '@/lib/profile'
 import { detectAts } from '@/lib/apply/ats'
 import { applyAgentConfigured, dispatchApplyWorker, dispatchCrawl } from '@/lib/apply/dispatch'
@@ -137,6 +139,14 @@ export async function submitApplication(jobId: number) {
   if (!dispatched) {
     await upsertApplication(jobId, { status: 'failed', error: 'Apply agent not configured.' })
   }
+}
+
+/** Move an interested job between pipeline stages (saved → … → offer / inactive). */
+export async function setPipelineStage(jobId: number, stage: string) {
+  await assertSession()
+  if (!isPipelineStage(stage)) throw new Error('unknown stage')
+  await setPipelineStageQuery(jobId, stage)
+  revalidatePath('/interested')
 }
 
 /** Move a filtered/triaged job (back) into the inbox. */

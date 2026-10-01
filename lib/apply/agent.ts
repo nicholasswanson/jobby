@@ -7,6 +7,7 @@ import {
   getApplication,
   getJobProfile,
   getProfile,
+  markAppliedIfSaved,
   getResume,
   getTailoring,
   upsertApplication,
@@ -241,6 +242,7 @@ export async function runApply(jobId: number, mode: 'fill' | 'submit'): Promise<
         await page.waitForTimeout(4000)
         log.push({ step: 'submitted', at: now() })
         await setStatus('submitted', { sessionUrl, screenshotBase64 })
+        await markAppliedIfSaved(jobId).catch(() => {}) // pipeline: saved → applied
       } else {
         await setStatus('needs_review', { sessionUrl, screenshotBase64 })
       }
