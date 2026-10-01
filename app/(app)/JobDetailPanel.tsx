@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { relativeDate } from '@/lib/format'
 import { loadJobDetail } from './actions'
 import ApplySection from './ApplySection'
+import Description from './Description'
 
 function CloseButton({ onClose }: { onClose: () => void }) {
   return (
@@ -175,9 +176,7 @@ export default function JobDetailPanel({
               <section className="mt-5">
                 <h3 className="text-sm font-semibold">Description</h3>
                 {detail.description ? (
-                  <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-                    {detail.description}
-                  </p>
+                  <Description text={detail.description} />
                 ) : (
                   <p className="mt-1 text-sm text-zinc-400">
                     No description captured — open the posting to read it.
