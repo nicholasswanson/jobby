@@ -157,7 +157,7 @@ All patterns live in one file with a fixture-driven test suite (real JSON payloa
 - `/interested` — pipeline list; placeholder actions column (future: draft outreach, mark applied).
 - `/companies` — seed list, per-company active toggle, failure indicators.
 - Health chip in the shell: "Last updated 14 min ago · 3 new" — the run time from the latest `runs` row; "N new" counts the active person's inbox rows first seen by that run.
-- **Person switcher** in the header (`Jobby › Erin › All`): picks whose search the whole app shows (inbox + feeds, interested, settings, résumé). Stored in a plain `jobby_profile` cookie; defaults to Erin. Both people share one login, one company list, and one crawl.
+- **Person switcher** in the header (`Jobby › Erin › All`): picks whose search the whole app shows (inbox + feeds, interested, settings, résumé). Stored in a plain `jobby_profile` cookie; defaults to Erin. Deep link: `/?person=brodi` (any page) sets the cookie and redirects to the same URL without the param (`proxy.ts`). Both people share one login, one company list, and one crawl.
 
 ## Auth
 

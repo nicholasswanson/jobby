@@ -22,7 +22,7 @@ import {
 } from '@/lib/db/queries'
 import { generateTailoredResume } from '@/lib/ai/tailor'
 import { isProfileKey } from '@/lib/filters'
-import { getCurrentProfile, PROFILE_COOKIE } from '@/lib/profile'
+import { getCurrentProfile, PROFILE_COOKIE, PROFILE_COOKIE_MAX_AGE } from '@/lib/profile'
 import { detectAts } from '@/lib/apply/ats'
 import { applyAgentConfigured, dispatchApplyWorker, dispatchCrawl } from '@/lib/apply/dispatch'
 
@@ -176,7 +176,7 @@ export async function switchProfile(key: string) {
   cookieStore.set(PROFILE_COOKIE, key, {
     path: '/',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 365,
+    maxAge: PROFILE_COOKIE_MAX_AGE,
   })
   revalidatePath('/', 'layout')
 }
