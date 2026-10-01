@@ -34,6 +34,16 @@ export default async function InboxPage({
       postedLabel: relativeDate(effective, now),
       postedAtMs: effective ? new Date(effective).getTime() : null,
       isNew: r.firstSeen ? new Date(r.firstSeen).getTime() >= newCutoff : false,
+      industry: r.industry,
+      teamSize: r.teamSize,
+      stage: r.stage,
+      batch: r.batch,
+      // Trigger background enrichment for companies with no profile yet (and not
+      // tried in the last week — enrichCompany enforces the same guard server-side).
+      needsEnrich:
+        !r.companyOneLiner &&
+        !r.companyDescription &&
+        (!r.companyAiEnrichedAt || now.getTime() - new Date(r.companyAiEnrichedAt).getTime() > 7 * 86_400_000),
     }
   })
 

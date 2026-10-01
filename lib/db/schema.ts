@@ -30,8 +30,10 @@ export const companies = pgTable(
     teamSize: integer('team_size'),
     industry: text('industry'),
     batch: text('batch'),
-    stage: text('stage'),
+    stage: text('stage'), // funding stage ("Seed", "Series B", "Public") from YC seed or AI enrichment
     enrichedAt: timestamp('enriched_at', { withTimezone: true }),
+    // Last Claude web-search enrichment attempt (success or empty) — bounds repeat spend.
+    aiEnrichedAt: timestamp('ai_enriched_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique('companies_ats_slug_unq').on(t.atsType, t.slug)],
@@ -62,6 +64,9 @@ export const jobs = pgTable('jobs', {
   filterReason: text('filter_reason'), // set when status='filtered': 'seniority' | 'junior' | 'geo' | 'onsite'
   closedWhileInterested: boolean('closed_while_interested').notNull().default(false),
   triagedAt: timestamp('triaged_at', { withTimezone: true }),
+  // Pipeline stage once interested (PIPELINE_STAGES in lib/pipeline.ts).
+  pipelineStage: text('pipeline_stage').notNull().default('saved'),
+  stageChangedAt: timestamp('stage_changed_at', { withTimezone: true }),
 }, (t) => [unique('jobs_dedupe_hash_profile_unq').on(t.dedupeHash, t.profile)])
 
 export const runs = pgTable('runs', {

@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, isNotNull, notInArray, sql } from 'drizzle-orm'
 import { db } from './client'
 import { getSearchProfile, type ProfileKey, type RoleCategory } from '../filters'
+import type { PipelineStage } from '../pipeline'
 import {
   applicationProfile,
   applications,
@@ -166,6 +167,14 @@ const CARD_SNIPPET = sql<string | null>`left(${jobs.description}, 800)`
 // Hard cutoff: never show jobs whose effective posted date is >90 days old.
 const WITHIN_90_DAYS = sql`coalesce(${jobs.postedAt}, ${jobs.firstSeen}) >= now() - interval '90 days'`
 
+// Company facts shown on cards (industry · ~N people · Series A · YC W24).
+const COMPANY_FACTS = {
+  industry: companies.industry,
+  teamSize: companies.teamSize,
+  stage: companies.stage,
+  batch: companies.batch,
+}
+
 // Role feeds are per profile (SEARCH_PROFILES in lib/filters.ts). 'all' spans
 // every feed of that profile; an unknown feed falls back to 'all'.
 export type InboxFeed = 'all' | RoleCategory
@@ -202,6 +211,11 @@ export function getInbox(profile: ProfileKey, feed: InboxFeed = 'all') {
       status: jobs.status,
       companyId: jobs.companyId,
       companyName: companies.name,
+      ...COMPANY_FACTS,
+      // Whether the panel/inbox should trigger AI enrichment (same rule as enrichCompany).
+      companyOneLiner: companies.oneLiner,
+      companyDescription: companies.description,
+      companyAiEnrichedAt: companies.aiEnrichedAt,
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
@@ -275,7 +289,9 @@ export function getInterested(profile: ProfileKey) {
       postedAt: jobs.postedAt,
       triagedAt: jobs.triagedAt,
       closedWhileInterested: jobs.closedWhileInterested,
+      pipelineStage: jobs.pipelineStage,
       companyName: companies.name,
+      ...COMPANY_FACTS,
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
@@ -344,6 +360,23 @@ export async function restoreToInbox(jobId: number) {
     .update(jobs)
     .set({ status: 'inbox', filterReason: null, triagedAt: null })
     .where(eq(jobs.id, jobId))
+}
+
+// ---- Pipeline stage ---------------------------------------------------------
+
+export async function setPipelineStage(jobId: number, stage: PipelineStage) {
+  await db
+    .update(jobs)
+    .set({ pipelineStage: stage, stageChangedAt: sql`now()` })
+    .where(eq(jobs.id, jobId))
+}
+
+/** The apply agent submitted: advance a still-'saved' job to 'applied'. */
+export async function markAppliedIfSaved(jobId: number) {
+  await db
+    .update(jobs)
+    .set({ pipelineStage: 'applied', stageChangedAt: sql`now()` })
+    .where(and(eq(jobs.id, jobId), eq(jobs.pipelineStage, 'saved')))
 }
 
 // ---- Triage write -----------------------------------------------------------

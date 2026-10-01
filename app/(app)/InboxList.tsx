@@ -18,7 +18,30 @@ export type InboxItem = {
   postedLabel: string
   postedAtMs: number | null
   isNew: boolean
+  // Company facts for at-a-glance triage (any may be unknown).
+  industry: string | null
+  teamSize: number | null
+  stage: string | null
+  batch: string | null
+  needsEnrich: boolean
 }
+
+export type CompanyFacts = Pick<InboxItem, 'industry' | 'teamSize' | 'stage'>
+
+/** "Industry · ~120 people · Series A · YC W24" — only the parts we know. */
+export function factsLine(f: { industry: string | null; teamSize: number | null; stage: string | null; batch: string | null }): string {
+  return [
+    f.industry,
+    f.teamSize ? `~${f.teamSize.toLocaleString()} people` : null,
+    f.stage,
+    f.batch ? `YC ${f.batch}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+// Background enrichment: at most this many companies researched concurrently.
+const ENRICH_CONCURRENCY = 3
 
 type TriageStatus = 'interested' | 'not_a_fit'
 
@@ -65,6 +88,10 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
   const [toast, setToast] = useState<Toast | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { jobId: detailId, openJob, close } = usePanel()
+  // Facts that arrived from background enrichment (companyId → facts).
+  const [facts, setFacts] = useState<Record<number, CompanyFacts>>({})
+  const enrichRequested = useRef<Set<number>>(new Set())
+  const enrichInflight = useRef(0)
 
   // Remember the posted-date range locally between visits.
   useEffect(() => {
@@ -84,6 +111,34 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
     const cutoff = Date.now() - conf.days * DAY
     return optimisticItems.filter((i) => i.postedAtMs != null && i.postedAtMs >= cutoff)
   }, [optimisticItems, dateFilter])
+
+  // Research companies with no profile yet so cards fill in without a click.
+  // Same route the panel uses; the server refuses to re-search within 7 days.
+  useEffect(() => {
+    const queue = visible
+      .filter((i) => i.needsEnrich && !enrichRequested.current.has(i.companyId))
+      .map((i) => i.companyId)
+    for (const id of new Set(queue)) {
+      if (enrichInflight.current >= ENRICH_CONCURRENCY) break
+      enrichRequested.current.add(id)
+      enrichInflight.current += 1
+      fetch(`/api/companies/${id}/enrich`, { method: 'POST' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((res: Partial<CompanyFacts> | null) => {
+          if (res && (res.industry || res.teamSize || res.stage)) {
+            setFacts((f) => ({
+              ...f,
+              [id]: { industry: res.industry ?? null, teamSize: res.teamSize ?? null, stage: res.stage ?? null },
+            }))
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          enrichInflight.current -= 1
+          setFacts((f) => ({ ...f })) // re-run this effect to pick up the next company
+        })
+    }
+  }, [visible, facts])
 
   const showToast = (t: Omit<Toast, 'key'>) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -105,7 +160,8 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
       startTransition(async () => {
         applyOptimistic({ kind: 'job', id })
         setLeaving((l) => {
-          const { [id]: _gone, ...rest } = l
+          const rest = { ...l }
+          delete rest[id]
           return rest
         })
         if (detailId === id && status === 'not_a_fit') close()
@@ -207,7 +263,7 @@ export default function InboxList({ items }: { items: InboxItem[] }) {
           {visible.map((item, idx) => (
             <JobCard
               key={item.id}
-              item={item}
+              item={facts[item.companyId] ? { ...item, ...facts[item.companyId] } : item}
               selected={idx === Math.min(selected, visible.length - 1)}
               isOpen={detailId === item.id}
               leaving={leaving[item.id] ?? null}
@@ -361,6 +417,9 @@ function JobCard({
           {item.salaryText ? <span>· {item.salaryText}</span> : null}
           {item.postedLabel ? <span>· {item.postedLabel}</span> : null}
         </div>
+        {factsLine(item) ? (
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{factsLine(item)}</p>
+        ) : null}
 
         {item.snippet ? (
           <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
