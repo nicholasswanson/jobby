@@ -1,5 +1,5 @@
 import pLimit from 'p-limit'
-import { filterJob } from './filters'
+import { filterJob, SEARCH_PROFILES, type FilterResult, type SearchProfile } from './filters'
 import { dedupeHash } from './hash'
 import { isOvernightPacific } from './time'
 import {
@@ -61,15 +61,36 @@ export type CrawlResult = {
 
 type Counters = { jobsSeen: number; newJobs: number; filtered: number; seenJobIds: number[] }
 
-// Build a job row from a posting + its (non-irrelevant) verdict.
+// Every person's search runs against every posting; a posting yields one job
+// row per profile it is relevant to (see SEARCH_PROFILES in lib/filters.ts).
+const PROFILES: SearchProfile[] = Object.values(SEARCH_PROFILES)
+
+type RelevantVerdict = Extract<FilterResult, { relevant: true } | { included: true }>
+
+/** (profile, verdict) pairs for the profiles this posting is a target role for. */
+function verdictsFor(p: NormalizedPosting): { profile: SearchProfile; verdict: RelevantVerdict }[] {
+  const out: { profile: SearchProfile; verdict: RelevantVerdict }[] = []
+  for (const profile of PROFILES) {
+    const verdict = filterJob(
+      { title: p.title, location: p.location, description: p.description },
+      profile,
+    )
+    if (verdict.included || verdict.relevant) out.push({ profile, verdict })
+  }
+  return out
+}
+
+// Build a job row from a posting + its (non-irrelevant) verdict for one profile.
 function buildRow(
   companyId: number,
+  profile: SearchProfile,
   p: NormalizedPosting,
-  verdict: Extract<ReturnType<typeof filterJob>, { relevant: true } | { included: true }>,
+  verdict: RelevantVerdict,
 ): NewJob {
   const included = verdict.included
   return {
     companyId,
+    profile: profile.key,
     externalId: p.externalId,
     dedupeHash: dedupeHash(companyId, p.title, p.location),
     title: p.title,
@@ -87,37 +108,39 @@ function buildRow(
 
 /**
  * Ingest one posting for a known company (used by aggregators, which resolve a
- * distinct company per posting so batching doesn't apply).
+ * distinct company per posting so batching doesn't apply). Per profile:
  *  - target role, passes gates  → `inbox`
  *  - target role, gated out      → `filtered` (+ reason) for review
  *  - not a target role           → skipped
  */
 async function ingestOne(companyId: number, p: NormalizedPosting, counters: Counters) {
-  const verdict = filterJob({ title: p.title, location: p.location, description: p.description })
-  if (!verdict.included && !verdict.relevant) return
-  const { job, isNew } = await upsertJob(buildRow(companyId, p, verdict))
-  counters.seenJobIds.push(job.id)
-  if (verdict.included) {
-    counters.jobsSeen += 1
-    if (isNew) counters.newJobs += 1
-  } else if (isNew) {
-    counters.filtered += 1
+  for (const { profile, verdict } of verdictsFor(p)) {
+    const { job, isNew } = await upsertJob(buildRow(companyId, profile, p, verdict))
+    counters.seenJobIds.push(job.id)
+    if (verdict.included) {
+      counters.jobsSeen += 1
+      if (isNew) counters.newJobs += 1
+    } else if (isNew) {
+      counters.filtered += 1
+    }
   }
 }
 
-/** Board ingest: classify all postings, then upsert in a single batch per company. */
+/** Board ingest: classify all postings (per profile), then upsert in a single batch per company. */
 async function ingestPostings(companyId: number, postings: NormalizedPosting[], counters: Counters) {
   const rows: NewJob[] = []
   const includedFlags: boolean[] = []
-  const seenHashes = new Set<string>()
+  const seenKeys = new Set<string>()
   for (const p of postings) {
-    const verdict = filterJob({ title: p.title, location: p.location, description: p.description })
-    if (!verdict.included && !verdict.relevant) continue
-    const row = buildRow(companyId, p, verdict)
-    if (seenHashes.has(row.dedupeHash)) continue // ON CONFLICT can't hit a hash twice per batch
-    seenHashes.add(row.dedupeHash)
-    rows.push(row)
-    includedFlags.push(verdict.included)
+    for (const { profile, verdict } of verdictsFor(p)) {
+      const row = buildRow(companyId, profile, p, verdict)
+      // ON CONFLICT can't hit the same (hash, profile) twice in one batch.
+      const key = `${row.dedupeHash}|${row.profile}`
+      if (seenKeys.has(key)) continue
+      seenKeys.add(key)
+      rows.push(row)
+      includedFlags.push(verdict.included)
+    }
   }
   const result = await upsertJobs(rows)
   result.forEach((r, i) => {
@@ -146,9 +169,8 @@ async function crawlAggregators(counters: Counters) {
       const raw = agg.kind === 'json' ? await fetchJson(agg.url) : await fetchText(agg.url)
       const postings = agg.normalize(raw)
       for (const p of postings) {
-        // Skip irrelevant roles before creating a company row for them.
-        const verdict = filterJob({ title: p.title, location: p.location, description: p.description })
-        if (!verdict.included && !verdict.relevant) continue
+        // Skip roles irrelevant to everyone before creating a company row for them.
+        if (verdictsFor(p).length === 0) continue
         const name = p.companyName?.trim()
         if (!name) continue
 

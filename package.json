@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "seed": "tsx --env-file=.env.local scripts/build-seed.ts",
-    "crawl:local": "tsx --env-file=.env.local scripts/crawl-local.ts"
+    "crawl:local": "tsx --env-file=.env.local scripts/crawl-local.ts",
+    "resume:import": "tsx --env-file=.env.local scripts/import-resume.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

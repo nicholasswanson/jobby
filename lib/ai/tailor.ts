@@ -1,5 +1,6 @@
 import { anthropic, CLAUDE_MODEL } from './client'
 import { getJobDetail, getResume, upsertTailoring } from '../db/queries'
+import type { ProfileKey } from '../filters'
 
 const SYSTEM = `You tailor a candidate's résumé to a specific job posting.
 
@@ -41,13 +42,15 @@ const SCHEMA = {
  */
 export async function generateTailoredResume(jobId: number): Promise<void> {
   try {
-    const [resume, detail] = await Promise.all([getResume(), getJobDetail(jobId)])
-    if (!resume) {
-      await upsertTailoring(jobId, { status: 'error', error: 'No résumé uploaded.' })
-      return
-    }
+    const detail = await getJobDetail(jobId)
     if (!detail) {
       await upsertTailoring(jobId, { status: 'error', error: 'Job not found.' })
+      return
+    }
+    // The résumé of whichever person this job row belongs to.
+    const resume = await getResume(detail.profile as ProfileKey)
+    if (!resume) {
+      await upsertTailoring(jobId, { status: 'error', error: 'No résumé uploaded.' })
       return
     }
 

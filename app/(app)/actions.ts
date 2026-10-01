@@ -21,6 +21,8 @@ import {
   upsertTailoring,
 } from '@/lib/db/queries'
 import { generateTailoredResume } from '@/lib/ai/tailor'
+import { isProfileKey } from '@/lib/filters'
+import { getCurrentProfile, PROFILE_COOKIE } from '@/lib/profile'
 import { detectAts } from '@/lib/apply/ats'
 import { applyAgentConfigured, dispatchApplyWorker, dispatchCrawl } from '@/lib/apply/dispatch'
 
@@ -75,7 +77,8 @@ export async function loadApplication(jobId: number) {
 /** Whether the résumé + profile + agent config are ready enough to apply. */
 export async function getApplyReadiness() {
   await assertSession()
-  const [resume, profile] = await Promise.all([getResume(), getProfile()])
+  const who = await getCurrentProfile()
+  const [resume, profile] = await Promise.all([getResume(who), getProfile(who)])
   return {
     hasResume: Boolean(resume),
     hasProfile: Boolean(profile?.fullName && profile?.email),
@@ -163,6 +166,19 @@ export async function hideCompanyFromInbox(companyId: number) {
 export async function crawlNow() {
   await assertSession()
   return dispatchCrawl()
+}
+
+/** Switch the browser to another person's view (header dropdown). */
+export async function switchProfile(key: string) {
+  await assertSession()
+  if (!isProfileKey(key)) throw new Error('unknown profile')
+  const cookieStore = await cookies()
+  cookieStore.set(PROFILE_COOKIE, key, {
+    path: '/',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 365,
+  })
+  revalidatePath('/', 'layout')
 }
 
 export async function logout() {

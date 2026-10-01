@@ -1,12 +1,13 @@
 import { getInterested } from '@/lib/db/queries'
 import { relativeDate } from '@/lib/format'
+import { getCurrentProfile } from '@/lib/profile'
 import type { RemoteType } from '@/lib/filters'
 import InterestedList, { type InterestedItem } from './InterestedList'
 
 export const dynamic = 'force-dynamic'
 
 export default async function InterestedPage() {
-  const rows = await getInterested()
+  const rows = await getInterested(await getCurrentProfile())
   const now = new Date()
 
   if (rows.length === 0) {

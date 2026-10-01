@@ -49,8 +49,9 @@ companies (
 jobs (
   id            serial PK,
   company_id    int REFERENCES companies,
+  profile       text NOT NULL DEFAULT 'erin',  -- whose search this row is ('erin' | 'brodi'); one row per (posting, profile)
   external_id   text,               -- ATS's own job id when available
-  dedupe_hash   text UNIQUE NOT NULL,  -- sha256(company_id + norm_title + norm_location)
+  dedupe_hash   text NOT NULL,      -- sha256(company_id + norm_title + norm_location); UNIQUE (dedupe_hash, profile)
   title         text NOT NULL,
   location      text,
   remote_type   text,               -- 'remote' | 'remote_us' | 'remote_restricted'
@@ -59,9 +60,13 @@ jobs (
   posted_at     timestamptz,
   first_seen    timestamptz DEFAULT now(),
   last_seen     timestamptz DEFAULT now(),
-  status        text DEFAULT 'inbox',  -- 'inbox' | 'interested' | 'not_a_fit' | 'closed'
+  status        text DEFAULT 'inbox',  -- 'inbox' | 'interested' | 'not_a_fit' | 'closed' | 'filtered'
   triaged_at    timestamptz
 )
+-- Multi-person (added post-v1): every per-job column above (status, categories,
+-- filter_reason, triage) is per person because the row itself is per person.
+-- `resume` and `application_profile` are keyed by `profile` the same way.
+-- Companies (and the mute flag) stay shared — same sources for everyone.
 
 runs (
   id            serial PK,
@@ -109,7 +114,7 @@ Politeness: ≤5 concurrent probes, 10s timeout, exponential backoff on 429.
 2. **Fetch:** all `active` companies, concurrency-limited (`p-limit`, ~8), 10s timeout per request. A failing company increments `consecutive_failures` (auto-set `active=false` at 5) and never fails the run.
 3. **Normalize** each posting to `{externalId, title, location, salaryText, url, postedAt}` per-source in `lib/sources/{greenhouse,lever,ashby,remotive,wwr}.ts`.
 4. **Filter** (see below).
-5. **Dedupe:** `dedupe_hash = sha256(companyId|lower(trim(title))|lower(trim(location)))`. Existing hash ⇒ bump `last_seen` only. New hash ⇒ insert with `status='inbox'`.
+5. **Dedupe:** `dedupe_hash = sha256(companyId|lower(trim(title))|lower(trim(location)))`, unique per `(dedupe_hash, profile)`. Each posting is evaluated against every search profile and yields one row per profile it is relevant to. Existing (hash, profile) ⇒ bump `last_seen` only. New ⇒ insert with `status='inbox'` (or `filtered` + reason).
 6. **Close:** jobs of successfully-crawled companies not seen this run ⇒ `status='closed'` (with the `interested` carve-out above).
 7. **Record** a `runs` row either way (including skipped runs, cheaply), powering the dashboard health chip.
 
@@ -117,13 +122,30 @@ Keep total run time well under Vercel's function duration limit: conditional req
 
 ## Filters (`lib/filters.ts` — single module, fully unit-tested)
 
+Matching is per **search profile** (`SEARCH_PROFILES`): each person has their own role feeds (title patterns), title gate (`exclude`), and experience-years window (`minYears` → reason `junior`, `maxYears` → reason `seniority`). The engineer gate, non-North-America geo gate, and location classifier are shared.
+
+**Erin** (entry-level remote AM / sales — the original v1 spec):
+
 ```ts
-// Title must match at least one:
+// Feeds: account_management, sales. Title must match a feed pattern:
 INCLUDE = /account manager|account executive|sales development|(^|\W)sdr(\W|$)|(^|\W)bdr(\W|$)|business development rep|customer success|sales associate|inside sales|account associate/i
 
-// Title must match none:
-EXCLUDE = /senior|\bsr\.?\b|staff|principal|director|vp\b|vice president|head of|lead\b|manager,\s*sales|enterprise account/i
+// Title must match none (deviation: `enterprise account` → `\benterprise\b`, see tests):
+EXCLUDE = /senior|\bsr\.?\b|staff|principal|director|vp\b|vice president|head of|lead\b|manager,\s*sales|\benterprise\b/i
+// maxYears 6
 ```
+
+**Brodi** (enterprise / strategic customer success, 8+ yrs, IC + people-leader):
+
+```ts
+// Feeds: enterprise_cs (CSM / TAM / strategic + key account / client partner …),
+//        cs_leadership ("Manager, Customer Success", "Head|Director of Customer Success", "CS Team Lead" …)
+// EXCLUDE: junior | associate | intern | specialist | coordinator | representative | SDR/BDR
+//          | support | SMB | scaled | VP/SVP/EVP | chief / CCO
+// minYears 3 (a "1-2 years" posting is too junior), maxYears 15
+```
+
+Senior / enterprise titles that Erin's gate drops are exactly Brodi's targets — the cross-profile test in `tests/filters.test.ts` pins "Account Manager, Enterprise" as filtered for her and included for him.
 
 Location classification: `remote` (fully remote / worldwide), `remote_us` (US-restricted — kept, badged), drop `hybrid|on-?site|in.?office`. Ambiguous locations are kept and badged `⚠ verify` rather than silently dropped — false negatives are worse than an occasional bad card.
 
@@ -134,7 +156,8 @@ All patterns live in one file with a fixture-driven test suite (real JSON payloa
 - `/` **Inbox** — cards newest-first: company, title, salary (if posted), remote badge, posted date, outbound link. Keyboard: `I` = interested, `X` = not a fit, `J/K` navigate. Mobile: swipe right/left. Optimistic updates via server actions.
 - `/interested` — pipeline list; placeholder actions column (future: draft outreach, mark applied).
 - `/companies` — seed list, per-company active toggle, failure indicators.
-- Health chip in the shell: "Last crawl 14 min ago · 3 new" from latest `runs` row.
+- Health chip in the shell: "Last updated 14 min ago · 3 new" — the run time from the latest `runs` row; "N new" counts the active person's inbox rows first seen by that run.
+- **Person switcher** in the header (`Jobby › Erin › All`): picks whose search the whole app shows (inbox + feeds, interested, settings, résumé). Stored in a plain `jobby_profile` cookie; defaults to Erin. Both people share one login, one company list, and one crawl.
 
 ## Auth
 
@@ -171,8 +194,8 @@ Note: GitHub Actions schedules can drift a few minutes under load — acceptable
 
 ## Résumé tailoring + Apply agent (added post-v1)
 
-- **Storage** (`lib/db/schema.ts`): `resume` (base résumé PDF, base64), `application_profile` (reusable application fields + reusable Q&A + `decline_demographics`), `job_tailoring` (per-job tailored résumé), `applications` (per-job apply-agent run).
-- **Settings › Résumé** (`app/(app)/settings/ResumeTab.tsx`): upload the PDF, edit the application profile.
+- **Storage** (`lib/db/schema.ts`): `resume` (base résumé PDF, base64, one row per person), `application_profile` (reusable application fields + reusable Q&A + `decline_demographics`, one row per person), `job_tailoring` (per-job tailored résumé), `applications` (per-job apply-agent run). Tailoring and the apply agent use the résumé/profile of the person the job row belongs to.
+- **Settings › Résumé** (`app/(app)/settings/ResumeTab.tsx`): upload the PDF, edit the application profile — for the person currently selected in the header. CLI equivalent: `npm run resume:import -- --profile <key> --file <pdf> [--name …]`.
 - **Tailoring** (`lib/ai/tailor.ts`): on `triageJob(interested)`, `after()` calls Claude (`claude-opus-4-8`) with the résumé PDF as a document block + a strict **no-fabrication** prompt → `{tailoredMarkdown, rationale}`. Downloaded as a clean PDF via `/api/tailored/[jobId]` (react-pdf). Never invents facts.
 - **Apply agent** (`lib/apply/*`, `scripts/apply.ts`, `.github/workflows/apply.yml`): the app fires `repository_dispatch` → a GitHub Actions worker drives a **Browserbase** remote browser over CDP (`playwright-core`). It extracts the ATS form fields and asks Claude (`lib/apply/plan.ts`) to map each to the profile — filling personal fields, **checking work-authorization**, **declining optional demographic/EEO** questions, answering matching screening Qs, and **skipping anything it can't answer from the profile** (no fabrication). It attaches the tailored résumé, screenshots the filled form, and pauses at `needs_review`; the user approves → it submits. **Scope: Greenhouse/Lever/Ashby anonymous-apply forms**; Workday/iCIMS/Taleo and unknown ATS → manual deep-link.
 - **ToS/safety:** automated ATS submission carries ToS/anti-bot risk — mitigated by Browserbase stealth, **human confirm-before-submit** (default), and per-job concurrency limits.

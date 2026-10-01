@@ -1,10 +1,11 @@
 import { getResume } from '@/lib/db/queries'
+import { getCurrentProfile } from '@/lib/profile'
 
 export const dynamic = 'force-dynamic'
 
 // Streams the stored résumé PDF back for download / preview.
 export async function GET() {
-  const row = await getResume()
+  const row = await getResume(await getCurrentProfile())
   if (!row) {
     return new Response('No résumé uploaded', { status: 404 })
   }

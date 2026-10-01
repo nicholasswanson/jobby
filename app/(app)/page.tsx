@@ -1,5 +1,6 @@
-import { getInbox, getLatestRun, INBOX_FEEDS, type InboxFeed } from '@/lib/db/queries'
+import { getInbox, getLatestRun, resolveFeed } from '@/lib/db/queries'
 import { relativeDate } from '@/lib/format'
+import { getCurrentProfile } from '@/lib/profile'
 import type { RemoteType } from '@/lib/filters'
 import InboxList, { type InboxItem } from './InboxList'
 
@@ -11,10 +12,9 @@ export default async function InboxPage({
   searchParams: Promise<{ feed?: string }>
 }) {
   const { feed: feedParam } = await searchParams
-  const feed: InboxFeed = (INBOX_FEEDS as readonly string[]).includes(feedParam ?? '')
-    ? (feedParam as InboxFeed)
-    : 'all'
-  const [rows, [latestRun]] = await Promise.all([getInbox(feed), getLatestRun()])
+  const who = await getCurrentProfile()
+  const feed = resolveFeed(who, feedParam)
+  const [rows, [latestRun]] = await Promise.all([getInbox(who, feed), getLatestRun()])
   const now = new Date()
   // "New" = first seen in the most recent crawl (matches the header's "N new").
   const newCutoff = latestRun?.startedAt ? new Date(latestRun.startedAt).getTime() : Infinity

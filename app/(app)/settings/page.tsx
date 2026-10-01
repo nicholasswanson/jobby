@@ -6,18 +6,21 @@ import {
   getResume,
 } from '@/lib/db/queries'
 import { relativeDate } from '@/lib/format'
+import { getSearchProfile } from '@/lib/filters'
+import { getCurrentProfile } from '@/lib/profile'
 import SettingsView from './SettingsView'
 import type { ProfileData, ResumeMeta } from './ResumeTab'
 
 export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
+  const who = await getCurrentProfile()
   const [blocked, activity, filtered, resumeRow, profileRow] = await Promise.all([
     getBlockedCompanies(),
-    getActivityHistory(),
-    getFilteredJobs(),
-    getResume(),
-    getProfile(),
+    getActivityHistory(who),
+    getFilteredJobs(who),
+    getResume(who),
+    getProfile(who),
   ])
   const now = new Date()
 
@@ -43,6 +46,7 @@ export default async function SettingsPage() {
 
   return (
     <SettingsView
+      personLabel={getSearchProfile(who).label}
       resume={resume}
       profile={profile}
       blocked={blocked}
@@ -60,7 +64,7 @@ export default async function SettingsPage() {
         snippet: f.snippet,
         location: f.location,
         url: f.url,
-        reason: (f.filterReason as 'seniority' | 'geo' | 'onsite' | null) ?? null,
+        reason: (f.filterReason as 'seniority' | 'junior' | 'geo' | 'onsite' | null) ?? null,
         companyName: f.companyName,
       }))}
     />

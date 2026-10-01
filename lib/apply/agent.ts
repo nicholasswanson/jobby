@@ -3,7 +3,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Browserbase from '@browserbasehq/sdk'
 import { chromium, type Page } from 'playwright-core'
-import { getApplication, getProfile, getResume, getTailoring, upsertApplication } from '../db/queries'
+import {
+  getApplication,
+  getJobProfile,
+  getProfile,
+  getResume,
+  getTailoring,
+  upsertApplication,
+} from '../db/queries'
 import { planFill, type FieldAction, type FormField } from './plan'
 
 type LogEntry = { step: string; detail?: string; at: string }
@@ -161,10 +168,13 @@ export async function runApply(jobId: number, mode: 'fill' | 'submit'): Promise<
     upsertApplication(jobId, { status: status as never, log, ...extra })
 
   try {
+    // Whose application this is (the job row's person) → their profile + résumé.
+    const who = await getJobProfile(jobId)
+    if (!who) throw new Error('Job not found')
     const [app, profile, resume, tailoring] = await Promise.all([
       getApplication(jobId),
-      getProfile(),
-      getResume(),
+      getProfile(who),
+      getResume(who),
       getTailoring(jobId),
     ])
     if (!app?.applyUrl) throw new Error('No apply URL')

@@ -4,7 +4,7 @@ Agent briefing for this repo. Read `technical_plan.md` (architecture/specs) and 
 
 ## What this is
 
-A two-user job-discovery dashboard: crawls AI-startup ATS boards every 30 minutes for early-career remote account management / sales roles, and presents net-new postings in a triage inbox (Interested / Not a fit). Next.js App Router + TypeScript + Tailwind + Drizzle + Supabase Postgres, deployed on Vercel, crawls triggered by GitHub Actions.
+A two-person job-discovery dashboard: crawls AI-startup ATS boards every 30 minutes and presents net-new postings in a triage inbox (Interested / Not a fit). Each person has a **search profile** (`SEARCH_PROFILES` in `lib/filters.ts`) — Erin: early-career remote account management / sales; Brodi: enterprise / strategic customer success, IC and leadership — switched via the header dropdown (cookie). Sources and the company list are shared; jobs, triage, résumé and application profile are per person (one `jobs` row per posting per profile). Next.js App Router + TypeScript + Tailwind + Drizzle + Supabase Postgres, deployed on Vercel, crawls triggered by GitHub Actions.
 
 ## Commands
 
@@ -16,6 +16,7 @@ npm run db:generate      # drizzle-kit generate migrations from schema changes
 npm run db:migrate       # apply migrations
 npm run seed             # tsx scripts/build-seed.ts (idempotent, re-runnable)
 npm run crawl:local      # invoke the crawl pipeline locally against real boards
+npm run resume:import    # store a person's résumé PDF (+ contact fields) from the CLI
 ```
 
 ## Structure
@@ -51,7 +52,8 @@ tests/fixtures/       # real JSON payloads from each ATS, checked in
 
 - `lib/filters.ts` and `lib/sources/*` require unit tests with real fixture payloads. These suites are the contract — a green build means the pipeline's judgment is intact.
 - When an ATS payload shape surprises you at runtime, capture it as a new fixture and add a test before fixing the normalizer.
-- Edge cases that must stay covered: "Sr. Account Executive" (excluded), "Account Manager, Enterprise" (excluded), "Sales Development Representative" (included), "Remote (SF)" (dropped or badged per spec), "Remote — US only" (kept, badged `remote_us`).
+- Edge cases that must stay covered: "Sr. Account Executive" (excluded for Erin), "Account Manager, Enterprise" (excluded for Erin, **included** for Brodi), "Sales Development Representative" (included for Erin, excluded for Brodi), "Customer Success Manager" (IC feed for Brodi, never `cs_leadership`), "Remote (SF)" (dropped or badged per spec), "Remote — US only" (kept, badged `remote_us`).
+- Filter functions take the profile explicitly (`filterJob(input, profile)`); never default to one person's search.
 
 ## Definition of done for any task
 

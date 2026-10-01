@@ -19,7 +19,7 @@ type Filtered = {
   snippet: string | null
   location: string | null
   url: string
-  reason: 'seniority' | 'geo' | 'onsite' | null
+  reason: 'seniority' | 'junior' | 'geo' | 'onsite' | null
   companyName: string
 }
 
@@ -32,17 +32,20 @@ const TABS = [
 
 const REASON_LABEL: Record<string, string> = {
   seniority: 'Too senior',
+  junior: 'Too junior',
   geo: 'Outside North America',
   onsite: 'On-site / hybrid',
 }
 
 export default function SettingsView({
+  personLabel,
   resume,
   profile,
   blocked,
   activity,
   filtered,
 }: {
+  personLabel: string
   resume: ResumeMeta
   profile: ProfileData
   blocked: Blocked[]
@@ -53,7 +56,9 @@ export default function SettingsView({
 
   return (
     <div>
-      <h1 className="mb-3 text-lg font-semibold tracking-tight">Settings</h1>
+      <h1 className="mb-3 text-lg font-semibold tracking-tight">
+        Settings <span className="font-normal text-zinc-400">· {personLabel}</span>
+      </h1>
 
       <div className="mb-4 inline-flex rounded-lg border border-zinc-200 p-0.5 text-sm dark:border-zinc-800">
         {TABS.map((t) => (

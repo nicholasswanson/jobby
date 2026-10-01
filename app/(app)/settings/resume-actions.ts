@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { AUTH_ENABLED, isValidSession, SESSION_COOKIE } from '@/lib/auth'
 import { upsertProfile, upsertResume, type ProfileInput } from '@/lib/db/queries'
+import { getCurrentProfile } from '@/lib/profile'
 
 async function assertSession() {
   if (!AUTH_ENABLED) return
@@ -29,7 +30,7 @@ export async function uploadResume(_prev: ResumeState, formData: FormData): Prom
   }
 
   const dataBase64 = Buffer.from(await file.arrayBuffer()).toString('base64')
-  await upsertResume({
+  await upsertResume(await getCurrentProfile(), {
     fileName: file.name || 'resume.pdf',
     mimeType: 'application/pdf',
     dataBase64,
@@ -79,7 +80,7 @@ export async function saveProfile(_prev: ProfileState, formData: FormData): Prom
     extraAnswers: parseExtraAnswers(String(formData.get('extraAnswers') ?? '')),
   }
 
-  await upsertProfile(input)
+  await upsertProfile(await getCurrentProfile(), input)
   revalidatePath('/settings')
   return { ok: true }
 }

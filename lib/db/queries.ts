@@ -1,5 +1,6 @@
-import { and, desc, eq, inArray, isNotNull, notInArray, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNotNull, notInArray, sql } from 'drizzle-orm'
 import { db } from './client'
+import { getSearchProfile, type ProfileKey, type RoleCategory } from '../filters'
 import {
   applicationProfile,
   applications,
@@ -47,12 +48,13 @@ export function getCompaniesWithJobCounts() {
       website: companies.website,
       active: companies.active,
       consecutiveFailures: companies.consecutiveFailures,
-      jobCount: sql<number>`count(${jobs.id})::int`,
+      // Distinct postings (a posting both people match is stored once per profile).
+      jobCount: sql<number>`count(distinct ${jobs.dedupeHash})::int`,
     })
     .from(companies)
     .leftJoin(jobs, eq(jobs.companyId, companies.id))
     .groupBy(companies.id)
-    .orderBy(desc(sql`count(${jobs.id})`), companies.name)
+    .orderBy(desc(sql`count(distinct ${jobs.dedupeHash})`), companies.name)
 }
 
 const FAILURE_DEACTIVATE_THRESHOLD = 5
@@ -164,26 +166,28 @@ const CARD_SNIPPET = sql<string | null>`left(${jobs.description}, 800)`
 // Hard cutoff: never show jobs whose effective posted date is >90 days old.
 const WITHIN_90_DAYS = sql`coalesce(${jobs.postedAt}, ${jobs.firstSeen}) >= now() - interval '90 days'`
 
-// Role feeds. 'all' (default) spans every active category. Engineering is off
-// for now (see ENGINEERING_ENABLED in lib/filters.ts) so the feeds are AM + Sales.
-export const INBOX_FEEDS = ['all', 'account_management', 'sales'] as const
-export type InboxFeed = (typeof INBOX_FEEDS)[number]
+// Role feeds are per profile (SEARCH_PROFILES in lib/filters.ts). 'all' spans
+// every feed of that profile; an unknown feed falls back to 'all'.
+export type InboxFeed = 'all' | RoleCategory
 
-function feedCategories(feed: InboxFeed): string[] | null {
-  if (feed === 'all') return ['account_management', 'sales']
+export function resolveFeed(profile: ProfileKey, raw: string | undefined | null): InboxFeed {
+  const feeds = getSearchProfile(profile).feeds
+  return feeds.some((f) => f.key === raw) ? (raw as RoleCategory) : 'all'
+}
+
+function feedCategories(profile: ProfileKey, feed: InboxFeed): string[] {
+  if (feed === 'all') return getSearchProfile(profile).feeds.map((f) => f.key)
   return [feed]
 }
 
-export function getInbox(feed: InboxFeed = 'all') {
-  const conds = [eq(jobs.status, 'inbox'), WITHIN_90_DAYS]
-  const cats = feedCategories(feed)
-  if (cats) {
-    const arr = sql.join(
-      cats.map((c) => sql`${c}`),
-      sql`, `,
-    )
-    conds.push(sql`${jobs.categories} && ARRAY[${arr}]::text[]`)
-  }
+export function getInbox(profile: ProfileKey, feed: InboxFeed = 'all') {
+  const conds = [eq(jobs.profile, profile), eq(jobs.status, 'inbox'), WITHIN_90_DAYS]
+  const cats = feedCategories(profile, feed)
+  const arr = sql.join(
+    cats.map((c) => sql`${c}`),
+    sql`, `,
+  )
+  conds.push(sql`${jobs.categories} && ARRAY[${arr}]::text[]`)
   return db
     .select({
       id: jobs.id,
@@ -205,6 +209,15 @@ export function getInbox(feed: InboxFeed = 'all') {
     .orderBy(desc(jobs.firstSeen))
 }
 
+/** Inbox rows for a profile first seen at/after `since` (the "N new" in the header). */
+export async function countNewSince(profile: ProfileKey, since: Date): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(jobs)
+    .where(and(eq(jobs.profile, profile), eq(jobs.status, 'inbox'), gte(jobs.firstSeen, since)))
+  return row?.n ?? 0
+}
+
 /** Mute a company and drop its currently-open inbox jobs. */
 export async function hideCompany(companyId: number) {
   await db.update(companies).set({ active: false }).where(eq(companies.id, companyId))
@@ -219,6 +232,7 @@ export async function getJobDetail(jobId: number) {
   const [row] = await db
     .select({
       id: jobs.id,
+      profile: jobs.profile,
       title: jobs.title,
       description: jobs.description,
       location: jobs.location,
@@ -248,7 +262,7 @@ export async function getJobDetail(jobId: number) {
   return row ?? null
 }
 
-export function getInterested() {
+export function getInterested(profile: ProfileKey) {
   return db
     .select({
       id: jobs.id,
@@ -265,7 +279,7 @@ export function getInterested() {
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
-    .where(eq(jobs.status, 'interested'))
+    .where(and(eq(jobs.profile, profile), eq(jobs.status, 'interested')))
     .orderBy(desc(jobs.triagedAt))
 }
 
@@ -286,7 +300,7 @@ export function getBlockedCompanies() {
 }
 
 /** History of triage decisions (interested / not a fit), newest first. */
-export function getActivityHistory() {
+export function getActivityHistory(profile: ProfileKey) {
   return db
     .select({
       id: jobs.id,
@@ -298,13 +312,13 @@ export function getActivityHistory() {
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
-    .where(inArray(jobs.status, ['interested', 'not_a_fit']))
+    .where(and(eq(jobs.profile, profile), inArray(jobs.status, ['interested', 'not_a_fit'])))
     .orderBy(desc(jobs.triagedAt))
     .limit(200)
 }
 
 /** Relevant roles excluded by the filter (open only), for review + override. */
-export function getFilteredJobs() {
+export function getFilteredJobs(profile: ProfileKey) {
   return db
     .select({
       id: jobs.id,
@@ -319,7 +333,7 @@ export function getFilteredJobs() {
     })
     .from(jobs)
     .innerJoin(companies, eq(jobs.companyId, companies.id))
-    .where(and(eq(jobs.status, 'filtered'), WITHIN_90_DAYS))
+    .where(and(eq(jobs.profile, profile), eq(jobs.status, 'filtered'), WITHIN_90_DAYS))
     .orderBy(desc(jobs.firstSeen))
     .limit(300)
 }
@@ -348,15 +362,15 @@ export async function setJobStatus(jobId: number, status: TriageStatus) {
 export type UpsertResult = { job: Job; isNew: boolean }
 
 /**
- * Insert a net-new job (status 'inbox') or, if the dedupe hash already exists,
- * bump last_seen only. Idempotent: running the same crawl twice inserts nothing
- * the second time.
+ * Insert a net-new job (status 'inbox') or, if the (dedupe hash, profile) pair
+ * already exists, bump last_seen only. Idempotent: running the same crawl twice
+ * inserts nothing the second time.
  */
 export async function upsertJob(input: NewJob): Promise<UpsertResult> {
   const inserted = await db
     .insert(jobs)
     .values(input)
-    .onConflictDoNothing({ target: jobs.dedupeHash })
+    .onConflictDoNothing({ target: [jobs.dedupeHash, jobs.profile] })
     .returning()
 
   if (inserted.length > 0) {
@@ -373,7 +387,7 @@ export async function upsertJob(input: NewJob): Promise<UpsertResult> {
       salaryText: input.salaryText,
       categories: input.categories,
     })
-    .where(eq(jobs.dedupeHash, input.dedupeHash))
+    .where(and(eq(jobs.dedupeHash, input.dedupeHash), eq(jobs.profile, input.profile ?? 'erin')))
     .returning()
 
   return { job: updated[0], isNew: false }
@@ -383,7 +397,8 @@ export async function upsertJob(input: NewJob): Promise<UpsertResult> {
  * Batch upsert many jobs in a single round-trip (used per company by the crawl).
  * Returns {id, isNew} in input order. Refreshes description/salary/categories on
  * conflict; never touches `status` (preserves triage). Caller must pre-dedupe by
- * dedupe_hash (Postgres rejects a hash appearing twice in one ON CONFLICT batch).
+ * (dedupe_hash, profile) — Postgres rejects a key appearing twice in one ON
+ * CONFLICT batch.
  */
 export async function upsertJobs(rows: NewJob[]): Promise<{ id: number; isNew: boolean }[]> {
   if (rows.length === 0) return []
@@ -391,7 +406,7 @@ export async function upsertJobs(rows: NewJob[]): Promise<{ id: number; isNew: b
     .insert(jobs)
     .values(rows)
     .onConflictDoUpdate({
-      target: jobs.dedupeHash,
+      target: [jobs.dedupeHash, jobs.profile],
       set: {
         lastSeen: sql`now()`,
         description: sql`excluded.description`,
@@ -465,40 +480,49 @@ export async function getLastSeedAt(): Promise<Date | null> {
 
 // ---- Résumé + apply subsystem ----------------------------------------------
 
-export async function getResume(): Promise<Resume | null> {
-  const [row] = await db.select().from(resume).where(eq(resume.id, 1)).limit(1)
+export async function getResume(profile: ProfileKey): Promise<Resume | null> {
+  const [row] = await db.select().from(resume).where(eq(resume.profile, profile)).limit(1)
   return row ?? null
 }
 
-export async function upsertResume(input: { fileName: string; mimeType: string; dataBase64: string }) {
+export async function upsertResume(
+  profile: ProfileKey,
+  input: { fileName: string; mimeType: string; dataBase64: string },
+) {
   await db
     .insert(resume)
-    .values({ id: 1, ...input, uploadedAt: sql`now()` })
+    .values({ profile, ...input, uploadedAt: sql`now()` })
     .onConflictDoUpdate({
-      target: resume.id,
+      target: resume.profile,
       set: { ...input, uploadedAt: sql`now()` },
     })
 }
 
-export async function getProfile(): Promise<ApplicationProfile | null> {
+export async function getProfile(profile: ProfileKey): Promise<ApplicationProfile | null> {
   const [row] = await db
     .select()
     .from(applicationProfile)
-    .where(eq(applicationProfile.id, 1))
+    .where(eq(applicationProfile.profile, profile))
     .limit(1)
   return row ?? null
 }
 
-export type ProfileInput = Partial<Omit<ApplicationProfile, 'id' | 'updatedAt'>>
+export type ProfileInput = Partial<Omit<ApplicationProfile, 'profile' | 'updatedAt'>>
 
-export async function upsertProfile(input: ProfileInput) {
+export async function upsertProfile(profile: ProfileKey, input: ProfileInput) {
   await db
     .insert(applicationProfile)
-    .values({ id: 1, ...input, updatedAt: sql`now()` })
+    .values({ profile, ...input, updatedAt: sql`now()` })
     .onConflictDoUpdate({
-      target: applicationProfile.id,
+      target: applicationProfile.profile,
       set: { ...input, updatedAt: sql`now()` },
     })
+}
+
+/** Which person a job row belongs to (drives whose résumé tailoring/apply use). */
+export async function getJobProfile(jobId: number): Promise<ProfileKey | null> {
+  const [row] = await db.select({ profile: jobs.profile }).from(jobs).where(eq(jobs.id, jobId)).limit(1)
+  return row ? (row.profile as ProfileKey) : null
 }
 
 export async function getTailoring(jobId: number): Promise<JobTailoring | null> {

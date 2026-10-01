@@ -43,10 +43,14 @@ export const jobs = pgTable('jobs', {
     .notNull()
     .references(() => companies.id),
   externalId: text('external_id'), // ATS's own job id when available
-  dedupeHash: text('dedupe_hash').notNull().unique(), // sha256(companyId|title|location)
+  // Whose search this row belongs to ('erin' | 'brodi' — see SEARCH_PROFILES in
+  // lib/filters.ts). One row per (posting, profile); all per-job state below is
+  // therefore per person.
+  profile: text('profile').notNull().default('erin'),
+  dedupeHash: text('dedupe_hash').notNull(), // sha256(companyId|title|location)
   title: text('title').notNull(),
   description: text('description'), // plain-text snippet (untrusted; rendered escaped)
-  categories: text('categories').array(), // role feeds: account_management | sales | engineering
+  categories: text('categories').array(), // role feeds (RoleCategory keys in lib/filters.ts)
   location: text('location'),
   remoteType: text('remote_type'), // 'remote' | 'remote_us' | 'remote_restricted'
   salaryText: text('salary_text'),
@@ -55,10 +59,10 @@ export const jobs = pgTable('jobs', {
   firstSeen: timestamp('first_seen', { withTimezone: true }).notNull().defaultNow(),
   lastSeen: timestamp('last_seen', { withTimezone: true }).notNull().defaultNow(),
   status: text('status').notNull().default('inbox'), // 'inbox' | 'interested' | 'not_a_fit' | 'closed' | 'filtered'
-  filterReason: text('filter_reason'), // set when status='filtered': 'seniority' | 'geo' | 'onsite'
+  filterReason: text('filter_reason'), // set when status='filtered': 'seniority' | 'junior' | 'geo' | 'onsite'
   closedWhileInterested: boolean('closed_while_interested').notNull().default(false),
   triagedAt: timestamp('triaged_at', { withTimezone: true }),
-})
+}, (t) => [unique('jobs_dedupe_hash_profile_unq').on(t.dedupeHash, t.profile)])
 
 export const runs = pgTable('runs', {
   id: serial('id').primaryKey(),
@@ -84,20 +88,20 @@ export type NewRun = typeof runs.$inferInsert
 
 // --- Résumé + apply subsystem (see the approved plan) --------------------------
 // Binary (PDF, screenshots) is stored base64-encoded in text columns — résumés
-// are ~100KB, one row, two users. Keeps us off Supabase Storage / extra keys.
+// are ~100KB, one row per person. Keeps us off Supabase Storage / extra keys.
 
-// Singleton (id always 1): the base résumé PDF.
+// One row per profile: that person's base résumé PDF.
 export const resume = pgTable('resume', {
-  id: integer('id').primaryKey().default(1),
+  profile: text('profile').primaryKey().default('erin'),
   fileName: text('file_name').notNull(),
   mimeType: text('mime_type').notNull().default('application/pdf'),
   dataBase64: text('data_base64').notNull(),
   uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-// Singleton (id always 1): reusable answers the apply agent prefills from.
+// One row per profile: reusable answers the apply agent prefills from.
 export const applicationProfile = pgTable('application_profile', {
-  id: integer('id').primaryKey().default(1),
+  profile: text('profile').primaryKey().default('erin'),
   fullName: text('full_name'),
   email: text('email'),
   phone: text('phone'),

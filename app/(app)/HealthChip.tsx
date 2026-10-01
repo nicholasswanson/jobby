@@ -1,4 +1,5 @@
-import { getLatestRun } from '@/lib/db/queries'
+import { countNewSince, getLatestRun } from '@/lib/db/queries'
+import { getCurrentProfile } from '@/lib/profile'
 import { getPacificHour } from '@/lib/time'
 
 // "Last crawl 14 min ago · 3 new" — turns amber when the latest run is stale
@@ -32,18 +33,29 @@ export default async function HealthChip() {
           ? `${minsAgo} min ago`
           : `${Math.floor(minsAgo / 60)}h ${minsAgo % 60}m ago`
 
-  const newCount = latest.newJobs ?? 0
-  const label = latest.skipped
-    ? `Idle (overnight) · ${ago}`
-    : `Last updated ${ago} · ${newCount} new`
-
-  // Plain gray text, no pill (amber text only when stale).
-  return <Chip stale={stale}>{label}</Chip>
+  // "N new" is per person: this profile's inbox rows first seen by the latest run.
+  let newCount = 0
+  if (!latest.skipped && latest.startedAt) {
+    try {
+      newCount = await countNewSince(await getCurrentProfile(), new Date(latest.startedAt))
+    } catch {
+      newCount = latest.newJobs ?? 0
+    }
+  }
+  // Phones (<sm) only get the part that changes what you do — "N new" — so the
+  // person + feed switchers on the left keep their room; sm+ shows the full text.
+  const prefix = latest.skipped ? `Idle (overnight) · ${ago}` : `Last updated ${ago} · `
+  return (
+    <Chip stale={stale}>
+      <span className="hidden sm:inline">{prefix}</span>
+      {latest.skipped ? null : `${newCount} new`}
+    </Chip>
+  )
 }
 
 function Chip({ children, stale }: { children: React.ReactNode; stale?: boolean }) {
   return (
-    <span className={`text-xs ${stale ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}`}>
+    <span className={`shrink-0 text-xs ${stale ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}`}>
       {children}
     </span>
   )
