@@ -34,10 +34,7 @@ export default function ProfileSwitcher({ current, people }: { current: string; 
             if (key === current) return
             startTransition(async () => {
               await switchProfile(key)
-              // A job open in the panel belongs to the previous person — don't reopen it.
-              try {
-                localStorage.removeItem('jobby.panel')
-              } catch {}
+              // '/' drops any ?job= (that job belongs to the previous person).
               router.push('/')
               router.refresh()
             })

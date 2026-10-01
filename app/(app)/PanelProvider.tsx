@@ -1,9 +1,10 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import JobDetailPanel from './JobDetailPanel'
 
-const STORE_KEY = 'jobby.panel'
+const PARAM = 'job'
 
 type PanelCtx = { jobId: number | null; openJob: (id: number) => void; close: () => void }
 
@@ -11,28 +12,51 @@ const Ctx = createContext<PanelCtx>({ jobId: null, openJob: () => {}, close: () 
 export const usePanel = () => useContext(Ctx)
 
 /**
- * Holds the open job-detail panel for the whole authenticated area. When open on
- * desktop the panel reserves the right half; the content column keeps its exact
- * width (max-w-2xl) and just re-centers into the left half so the cards don't
- * reflow — the panel occupies space rather than resizing the cards. Erin can keep
- * clicking listings to refresh the panel. On small screens the panel overlays.
+ * Holds the open job-detail panel for the whole authenticated area. The open job
+ * lives in the URL (`?job=123`) via the native History API, which Next's router
+ * syncs into useSearchParams without a server round-trip — so opening is
+ * instant, refresh keeps the panel, the link is shareable, and the browser's
+ * Back button closes it (what a full-screen panel on a phone should do).
+ *
+ * Desktop: the panel reserves the right half; the content column keeps its
+ * exact width (max-w-2xl) and re-centers into the left half so cards don't
+ * reflow. Small screens: the panel overlays.
  */
 export default function PanelProvider({ children }: { children: React.ReactNode }) {
-  const [jobId, setJobId] = useState<number | null>(null)
+  const params = useSearchParams()
+  const raw = Number(params.get(PARAM))
+  const jobId = Number.isFinite(raw) && raw > 0 ? raw : null
   const open = jobId != null
+  // Did *we* push the history entry for the open panel? Then close = Back, so
+  // the stack stays clean. Otherwise (landed on a shared ?job= link) we just
+  // rewrite the URL in place.
+  const pushed = useRef(false)
 
-  // Keep the open job across refreshes.
   useEffect(() => {
-    const saved = Number(localStorage.getItem(STORE_KEY))
-    if (Number.isFinite(saved) && saved > 0) setJobId(saved)
-  }, [])
+    if (!open) pushed.current = false // closed via Back / navigation
+  }, [open])
+
   const openJob = (id: number) => {
-    setJobId(id)
-    localStorage.setItem(STORE_KEY, String(id))
+    if (id === jobId) return
+    const url = new URL(window.location.href)
+    url.searchParams.set(PARAM, String(id))
+    if (open) {
+      window.history.replaceState(null, '', url) // card → card: no extra entry
+    } else {
+      window.history.pushState(null, '', url)
+      pushed.current = true
+    }
   }
   const close = () => {
-    setJobId(null)
-    localStorage.removeItem(STORE_KEY)
+    if (!open) return
+    if (pushed.current) {
+      pushed.current = false
+      window.history.back()
+    } else {
+      const url = new URL(window.location.href)
+      url.searchParams.delete(PARAM)
+      window.history.replaceState(null, '', url)
+    }
   }
 
   return (

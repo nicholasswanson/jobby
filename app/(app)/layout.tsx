@@ -45,7 +45,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <NavLinks />
       </header>
 
-      <PanelProvider>{children}</PanelProvider>
+      {/* Suspense: PanelProvider reads useSearchParams (the open ?job=). */}
+      <Suspense fallback={<div className="mx-auto w-full max-w-2xl px-6 py-4">{children}</div>}>
+        <PanelProvider>{children}</PanelProvider>
+      </Suspense>
     </div>
   )
 }
